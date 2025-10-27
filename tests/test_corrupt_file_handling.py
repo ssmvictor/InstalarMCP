@@ -105,6 +105,7 @@ class TestCorruptFileHandling(unittest.TestCase):
             with patch('src.core.mcp_manager.ConfigManager') as mock_config_manager:
                 mock_instance = MagicMock()
                 mock_instance.get_user_path.return_value = user_path
+                mock_instance.get_cli_type.return_value = "gemini"
                 mock_config_manager.return_value = mock_instance
                 
                 manager = MCPManager()

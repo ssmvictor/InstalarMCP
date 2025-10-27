@@ -16,11 +16,11 @@ do código em módulos e pacotes dedicados.
 
 ## Visao Geral
 
-O MCP Manager lê e atualiza o arquivo `settings.json` usado pelo Gemini IDE para definir
+O MCP Manager lê e atualiza o arquivo `settings.json` usado pelo Gemini IDE e Qwen Coder CLI para definir
 servidores MCP permitidos, templates pré-configurados e demais ajustes. O projeto oferece:
 
 - Biblioteca para leitura, escrita e validação das configurações (`src/core`).
-- Interface gráfica com Tkinter (`mcp_gui.py`).
+- Interface gráfica com Tkinter (`mcp_gui.py`) para selecionar o CLI (Gemini/Qwen).
 - Scripts auxiliares e exemplos de uso (`scripts/` e `examples/`).
 
 ## Estrutura do Projeto
@@ -78,7 +78,7 @@ else:
 
 ### `src/core/mcp_manager.py`
 
-- Lê e escreve o arquivo `settings.json` localizado no `.gemini` do usuário.
+- Lê e escreve o arquivo `settings.json` localizado no diretório `.gemini` ou `.qwen` do usuário.
 - Realiza backup automático antes de salvar alterações.
 - Permite adicionar, remover, ativar/desativar e consultar servidores MCP.
 - Gera templates pré-configurados com comandos prontos.
@@ -98,6 +98,7 @@ print(f"Servidores configurados: {list(mcps)}")
 - Interface Tkinter que consome os módulos anteriores.
 - Permite visualizar servidores cadastrados, instalar templates, ativar/desativar,
   atualizar caminhos e salvar alterações.
+- Permite selecionar o CLI (Gemini/Qwen) através do menu.
 - Usa os mesmos módulos `MCPManager` e `ConfigManager` que podem ser usados via código.
 
 ## Configurando o Caminho do Usuario
@@ -112,7 +113,8 @@ python -m scripts.setup_user_path
 O assistente irá:
 1. Mostrar o caminho atual (se houver).
 2. Validar o novo caminho informado.
-3. Persistir a configuração em `src/core/mcp_config.json` (ou em `%APPDATA%/MCPManager`
+3. Perguntar qual CLI prefere (Gemini ou Qwen).
+4. Persistir a configuração em `src/core/mcp_config.json` (ou em `%APPDATA%/MCPManager`
    no Windows caso seja necessário).
 
 Você pode usar a classe `ConfigManager` diretamente em código se preferir automatizar

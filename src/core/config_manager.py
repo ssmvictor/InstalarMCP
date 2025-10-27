@@ -128,6 +128,59 @@ class ConfigManager:
             error_msg = f"Erro ao definir caminho do usuário: {e}"
             self._logger.error(error_msg)
             raise ConfigManagerError(error_msg)
+
+    def get_cli_type(self) -> str:
+        """
+        Recupera o tipo de CLI (gemini ou qwen) armazenado na configuração.
+
+        Returns:
+            O tipo de CLI ('gemini' ou 'qwen'). O padrão é 'gemini'.
+        """
+        try:
+            config = self._load_config()
+            cli_type = config.get("cli_type", "gemini")
+
+            if cli_type not in ["gemini", "qwen"]:
+                self._logger.warning(f"Tipo de CLI inválido '{cli_type}' encontrado. Usando 'gemini' como padrão.")
+                return "gemini"
+
+            return cli_type
+        except Exception as e:
+            self._logger.error(f"Erro ao recuperar tipo de CLI: {e}")
+            return "gemini"
+
+    def set_cli_type(self, cli_type: str) -> bool:
+        """
+        Define o tipo de CLI na configuração.
+
+        Args:
+            cli_type: O tipo de CLI a ser armazenado ('gemini' ou 'qwen').
+
+        Returns:
+            True se o tipo de CLI foi definido com sucesso.
+
+        Raises:
+            ConfigManagerError: Se o tipo de CLI for inválido ou ocorrer erro ao salvar.
+        """
+        if cli_type not in ["gemini", "qwen"]:
+            raise ConfigManagerError("Tipo de CLI deve ser 'gemini' ou 'qwen'")
+
+        try:
+            # Carrega configuração existente ou cria nova
+            config = self._load_config()
+
+            config["cli_type"] = cli_type
+
+            # Salva a configuração
+            self._save_config(config)
+
+            self._logger.info(f"Tipo de CLI definido com sucesso: {cli_type}")
+            return True
+
+        except Exception as e:
+            error_msg = f"Erro ao definir o tipo de CLI: {e}"
+            self._logger.error(error_msg)
+            raise ConfigManagerError(error_msg)
     
     def has_config(self) -> bool:
         """
