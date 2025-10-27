@@ -36,7 +36,9 @@ class MCPManagerGUI:
 
         # Instanciar MCPManager
         try:
+            self.config_manager = ConfigManager()
             self.manager = MCPManager()
+            self.cli_type = tk.StringVar(value=self.config_manager.get_cli_type())
         except Exception as e:
             messagebox.showerror("Erro", f"Não foi possível inicializar o MCP Manager: {str(e)}")
             root.destroy()
@@ -63,10 +65,28 @@ class MCPManagerGUI:
         file_menu.add_separator()
         file_menu.add_command(label="Sair", command=self.root.quit)
         
+        # Menu CLI
+        cli_menu = tk.Menu(menubar, tearoff=0)
+        menubar.add_cascade(label="CLI", menu=cli_menu)
+        cli_menu.add_radiobutton(label="Gemini", variable=self.cli_type, value="gemini", command=lambda: self.set_cli("gemini"))
+        cli_menu.add_radiobutton(label="Qwen", variable=self.cli_type, value="qwen", command=lambda: self.set_cli("qwen"))
+
         # Menu Ajuda
         help_menu = tk.Menu(menubar, tearoff=0)
         menubar.add_cascade(label="Ajuda", menu=help_menu)
         help_menu.add_command(label="Sobre", command=self.show_about)
+
+    def set_cli(self, cli_type: str):
+        """Define o CLI a ser usado."""
+        try:
+            self.config_manager.set_cli_type(cli_type)
+            self.manager.refresh_settings_path()
+            self.load_mcps()
+            self.update_status(f"CLI alterado para: {cli_type.capitalize()}")
+            messagebox.showinfo("Sucesso", f"CLI alterado para {cli_type.capitalize()} com sucesso!")
+        except (ConfigManagerError, MCPManagerError) as e:
+            self.update_status(f"Erro ao alterar CLI: {str(e)}", error=True)
+            messagebox.showerror("Erro", f"Não foi possível alterar o CLI: {str(e)}")
 
     def configure_user_path(self):
         """Abre diálogo para configurar o caminho do usuário."""

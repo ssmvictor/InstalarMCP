@@ -78,14 +78,17 @@ class MCPManager:
             self._logger.info(f"Using provided settings path: {self.settings_path}")
             return
 
-        if user_base_path is not None:
-            base = self._validate_and_normalize_user_path(user_base_path)
-            self.settings_path = base / ".gemini" / "settings.json"
-            self._logger.info(f"Using settings path from user_base_path: {self.settings_path}")
-            return
-
         try:
             config_manager = ConfigManager()
+            cli_type = config_manager.get_cli_type()
+            cli_dir = f".{cli_type}"
+
+            if user_base_path is not None:
+                base = self._validate_and_normalize_user_path(user_base_path)
+                self.settings_path = base / cli_dir / "settings.json"
+                self._logger.info(f"Using settings path from user_base_path: {self.settings_path}")
+                return
+
             user_path = config_manager.get_user_path()
 
             if user_path:
@@ -94,14 +97,15 @@ class MCPManager:
                 except (OSError, PermissionError) as e:
                     self._logger.debug(f"Path.resolve() failed, falling back to expanduser(): {e}")
                     normalized_path = Path(user_path).expanduser()
-                self.settings_path = normalized_path / ".gemini" / "settings.json"
+                self.settings_path = normalized_path / cli_dir / "settings.json"
                 self._logger.info(f"Using settings path from config: {self.settings_path}")
             else:
-                self.settings_path = Path.home() / ".gemini" / "settings.json"
+                self.settings_path = Path.home() / cli_dir / "settings.json"
                 self._logger.warning(f"No user path configured, using default: {self.settings_path}")
                 self._logger.info("Execute `python setup_user_path.py` para configurar o caminho do usuário")
         except ConfigManagerError as e:
-            self.settings_path = Path.home() / ".gemini" / "settings.json"
+            cli_dir = ".gemini"  # Fallback
+            self.settings_path = Path.home() / cli_dir / "settings.json"
             self._logger.warning(f"Error loading config ({e}), using default path: {self.settings_path}")
             self._logger.info("Execute `python setup_user_path.py` para configurar o caminho do usuário")
 
@@ -650,68 +654,38 @@ class MCPManager:
             3. ConfigManager.get_user_path() (reload from config)
             4. Path.home() (default fallback)
         """
-        if settings_path is not None:
-            self.settings_path = Path(settings_path)
-            self._logger.info(f"Using provided settings path: {self.settings_path}")
-        elif user_base_path is not None:
-            base = self._validate_and_normalize_user_path(user_base_path)
-            self.settings_path = base / ".gemini" / "settings.json"
-            self._logger.info(f"Using settings path from user_base_path: {self.settings_path}")
-        else:
-            try:
-                config_manager = ConfigManager()
-                user_path = config_manager.get_user_path()
+        try:
+            config_manager = ConfigManager()
+            cli_type = config_manager.get_cli_type()
+            cli_dir = f".{cli_type}"
 
+            if settings_path is not None:
+                self.settings_path = Path(settings_path)
+                self._logger.info(f"Using provided settings path: {self.settings_path}")
+            elif user_base_path is not None:
+                base = self._validate_and_normalize_user_path(user_base_path)
+                self.settings_path = base / cli_dir / "settings.json"
+                self._logger.info(f"Using settings path from user_base_path: {self.settings_path}")
+            else:
+                user_path = config_manager.get_user_path()
                 if user_path:
                     try:
                         normalized_path = Path(user_path).expanduser().resolve()
                     except (OSError, PermissionError) as e:
                         self._logger.debug(f"Path.resolve() failed, falling back to expanduser(): {e}")
                         normalized_path = Path(user_path).expanduser()
-                    self.settings_path = normalized_path / ".gemini" / "settings.json"
+                    self.settings_path = normalized_path / cli_dir / "settings.json"
                     self._logger.info(f"Refreshed settings path from config: {self.settings_path}")
                 else:
-                    self.settings_path = Path.home() / ".gemini" / "settings.json"
+                    self.settings_path = Path.home() / cli_dir / "settings.json"
                     self._logger.warning(f"No user path configured, using default: {self.settings_path}")
                     self._logger.info("Execute `python setup_user_path.py` para configurar o caminho do usuário")
-            except ConfigManagerError as e:
-                self.settings_path = Path.home() / ".gemini" / "settings.json"
-                self._logger.warning(f"Error loading config ({e}), using default path: {self.settings_path}")
-                self._logger.info("Execute `python setup_user_path.py` para configurar o caminho do usuário")
+        except ConfigManagerError as e:
+            cli_dir = ".gemini"  # Fallback
+            self.settings_path = Path.home() / cli_dir / "settings.json"
+            self._logger.warning(f"Error loading config ({e}), using default path: {self.settings_path}")
+            self._logger.info("Execute `python setup_user_path.py` para configurar o caminho do usuário")
 
         # Clear cache to force reload
         self._settings_cache = None
 
-
-if __name__ == "__main__":
-    # Example usage with explicit user_base_path
-    print("=== Example 1: Using user_base_path ===")
-    try:
-        with MCPManager(user_base_path="C:/Users/TI00") as manager:
-            print(f"Settings path: {manager.settings_path}")
-            mcps = manager.get_mcps()
-            print(f"Found {len(mcps)} MCPs")
-    except MCPManagerError as e:
-        print(f"Error: {e}")
-
-    print("\n=== Example 2: Using default (ConfigManager or Path.home()) ===")
-    with MCPManager() as manager:
-        # List all MCPs
-        print("Current MCPs:")
-        mcps = manager.get_mcps()
-        for name, details in mcps.items():
-            print(f"  {name}: {details}")
-
-        # Add a new MCP
-        try:
-            manager.add_mcp("test-mcp", "npx", ["-y", "test-package"])
-            print("Added test MCP")
-        except MCPManagerError as e:
-            print(f"Error adding MCP: {e}")
-
-        # Toggle MCP status
-        try:
-            new_state = manager.toggle_allowed("test-mcp", True)
-            print(f"Test MCP enabled: {new_state}")
-        except MCPManagerError as e:
-            print(f"Error toggling MCP: {e}")

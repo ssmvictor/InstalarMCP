@@ -68,6 +68,7 @@ class TestMCPManagerIntegration(unittest.TestCase):
         with patch('src.core.mcp_manager.ConfigManager') as mock_config_manager:
             mock_instance = MagicMock()
             mock_instance.get_user_path.return_value = str(self.user_dir)
+            mock_instance.get_cli_type.return_value = "gemini"
             mock_config_manager.return_value = mock_instance
             
             manager = MCPManager()
@@ -82,6 +83,7 @@ class TestMCPManagerIntegration(unittest.TestCase):
         with patch('src.core.mcp_manager.ConfigManager') as mock_config_manager:
             mock_instance = MagicMock()
             mock_instance.get_user_path.return_value = None
+            mock_instance.get_cli_type.return_value = "gemini"
             mock_config_manager.return_value = mock_instance
             
             manager = MCPManager()
@@ -100,6 +102,7 @@ class TestMCPManagerIntegration(unittest.TestCase):
             mock_instance = MagicMock()
             # Simular caminho com ~ que precisa ser expandido
             mock_instance.get_user_path.return_value = str(self.user_dir).replace(str(Path.home()), "~")
+            mock_instance.get_cli_type.return_value = "gemini"
             mock_config_manager.return_value = mock_instance
             
             manager = MCPManager()
@@ -117,6 +120,7 @@ class TestMCPManagerIntegration(unittest.TestCase):
         with patch('src.core.mcp_manager.ConfigManager') as mock_config_manager:
             mock_instance = MagicMock()
             mock_instance.get_user_path.return_value = str(self.user_dir)
+            mock_instance.get_cli_type.return_value = "gemini"
             mock_config_manager.return_value = mock_instance
             
             manager = MCPManager()
@@ -172,6 +176,7 @@ class TestMCPManagerIntegration(unittest.TestCase):
         with patch('src.core.mcp_manager.ConfigManager') as mock_config_manager:
             mock_instance = MagicMock()
             mock_instance.get_user_path.return_value = str(self.user_dir)
+            mock_instance.get_cli_type.return_value = "gemini"
             mock_config_manager.return_value = mock_instance
             
             manager = MCPManager()
@@ -184,6 +189,7 @@ class TestMCPManagerIntegration(unittest.TestCase):
             
             # Atualizar o mock para retornar o novo caminho
             mock_instance.get_user_path.return_value = str(new_user_dir)
+            mock_instance.get_cli_type.return_value = "gemini"
             
             # Atualizar o caminho no MCPManager
             manager.refresh_settings_path()
@@ -197,14 +203,12 @@ class TestMCPManagerIntegration(unittest.TestCase):
 
     def test_error_handling_with_invalid_config(self):
         """Testa tratamento de erros com configuração inválida."""
-        # Criar ConfigManager com arquivo inválido
-        invalid_config_file = Path(self.temp_dir) / "invalid_config.json"
-        with open(invalid_config_file, 'w') as f:
-            f.write("invalid json content")
-        
         # Mock para simular erro no ConfigManager
         with patch('src.core.mcp_manager.ConfigManager') as mock_config_manager:
-            mock_config_manager.side_effect = ConfigManagerError("Erro de configuração")
+            mock_instance = MagicMock()
+            mock_instance.get_user_path.side_effect = ConfigManagerError("Erro de configuração")
+            mock_instance.get_cli_type.return_value = "gemini"
+            mock_config_manager.return_value = mock_instance
             
             # MCPManager deve fazer fallback para Path.home()
             manager = MCPManager()

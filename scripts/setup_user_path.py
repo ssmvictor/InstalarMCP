@@ -62,6 +62,26 @@ def main():
                 print("Configuracao cancelada. Encerrando.")
                 return
 
+    # Obter o tipo de CLI preferido
+    while True:
+        cli_type = input(
+            "\nEscolha o CLI preferido (gemini/qwen) [gemini]: "
+        ).strip().lower()
+
+        if not cli_type:
+            cli_type = "gemini"
+
+        if cli_type in ["gemini", "qwen"]:
+            try:
+                config.set_cli_type(cli_type)
+                print(f"CLI preferido configurado como: {cli_type}")
+                break
+            except ConfigManagerError as e:
+                print(f"Erro ao configurar o CLI: {e}")
+                break
+        else:
+            print("Erro: Escolha invalida. Por favor, digite 'gemini' ou 'qwen'.")
+
     print("\nConfiguracao concluida!")
 
 
