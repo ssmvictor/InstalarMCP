@@ -339,7 +339,7 @@ Ou execute o script setup_user_path.py manualmente."""
         template_name = self.templates_listbox.get(selection[0])
         self.install_template(template_name)
 
-    def install_template(self, template_name: str, enable: bool = False):
+    def install_template(self, template_name: str, enable: bool = True):
         """Install an MCP from template."""
         try:
             # Verificar se já está instalado
@@ -347,8 +347,8 @@ Ou execute o script setup_user_path.py manualmente."""
                 messagebox.showinfo("Informação", f"MCP '{template_name}' já está instalado!")
                 return
 
-            # Instalar a partir do template
-            self.manager.install_from_template(template_name, enable)
+            # Instalar a partir do template, sempre habilitando
+            self.manager.install_from_template(template_name, enable=True)
 
             # Mostrar mensagem de sucesso
             action = "e ativado" if enable else "do"
