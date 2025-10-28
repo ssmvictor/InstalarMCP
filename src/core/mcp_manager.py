@@ -30,10 +30,12 @@ MCP_TEMPLATES = {
         "args": ["-y", "chrome-devtools-mcp@latest"],
         "description": "Chrome DevTools MCP for browser automation"
     },
-    "excel": {
-        "name": "excel",
+    "excel-data-manager": {
+        "name": "excel-data-manager",
         "command": "uvx",
-        "args": ["excel-mcp-server", "stdio"],
+        "args": [
+            "mcp-excel-server"
+        ],
         "description": "Excel MCP for spreadsheet manipulation"
     }
 }
