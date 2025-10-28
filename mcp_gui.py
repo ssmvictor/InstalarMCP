@@ -81,6 +81,11 @@ class MCPManagerGUI:
         try:
             self.config_manager.set_cli_type(cli_type)
             self.manager.refresh_settings_path()
+
+            # Atualizar a label imediatamente para feedback rápido
+            self.cli_status_label.config(text=f"CLI: {cli_type.capitalize()}")
+            self.root.update_idletasks()  # Forçar a atualização da UI
+
             self.load_mcps()
             self.update_status(f"CLI alterado para: {cli_type.capitalize()}")
             messagebox.showinfo("Sucesso", f"CLI alterado para {cli_type.capitalize()} com sucesso!")
