@@ -275,6 +275,9 @@ Ou execute o script setup_user_path.py manualmente."""
         self.status_label = ttk.Label(status_frame, text="Pronto", relief=tk.SUNKEN, anchor=tk.W)
         self.status_label.grid(row=0, column=0, sticky=(tk.W, tk.E))
 
+        self.cli_status_label = ttk.Label(status_frame, text="", relief=tk.SUNKEN, anchor=tk.E)
+        self.cli_status_label.grid(row=0, column=1, sticky=(tk.W, tk.E))
+
     def create_templates_frame(self, parent):
         # Frame de templates
         templates_frame = ttk.LabelFrame(parent, text="Templates de MCPs", padding="5")
@@ -390,6 +393,7 @@ Ou execute o script setup_user_path.py manualmente."""
                     values=(name, command, args))
 
             self.update_status(f"Carregados {len(mcps)} MCPs")
+            self.cli_status_label.config(text=f"CLI: {self.cli_type.get().capitalize()}")
 
         except MCPManagerError as e:
             self.update_status(f"Erro ao carregar MCPs: {str(e)}", error=True)
