@@ -1,4 +1,4 @@
-# CLI Workspace Context: MCP Manager
+﻿# CLI Workspace Context: MCP Manager
 
 ## Project Overview
 
@@ -19,40 +19,40 @@ The main technologies used are:
 ## Project Structure
 
 ```
-├── mcp_gui.py                  # Main GUI application
-├── README.md                   # Project documentation
-├── CLI.md                      # This file
-├── requirements.txt            # Project dependencies
-├── EXECUTAR.bat                # Windows execution script
-├── src/
-│   ├── __init__.py
-│   ├── core/
-│   │   ├── __init__.py
-│   │   ├── config_manager.py
-│   │   ├── mcp_manager.py
-│   │   └── mcp_config.example.json
-│   └── gui/                    # GUI components
-├── scripts/
-│   ├── __init__.py
-│   ├── create_directories.py
-│   ├── secure_dirs_setup.py
-│   └── setup_user_path.py
-├── examples/
-│   ├── __init__.py
-│   ├── demo_integration.py
-│   └── example_config_usage.py
-├── tests/
-│   ├── __init__.py
-│   ├── test_batch_operations.py
-│   ├── test_cli_switching.py
-│   ├── test_config_manager.py
-│   ├── test_corrupt_file_handling.py
-│   ├── test_dependency_validation.py
-│   ├── test_dependency_validation_complete.py
-│   ├── test_gui_batch.py
-│   └── test_mcp_manager_integration.py
-└── docs/
-    └── ...
++-- mcp_gui.py                  # Main GUI application
++-- README.md                   # Project documentation
++-- CLI.md                      # This file
++-- requirements.txt            # Project dependencies
++-- EXECUTAR.bat                # Windows execution script
++-- src/
+   +-- __init__.py
+   +-- core/
+      +-- __init__.py
+      +-- config_manager.py
+      +-- mcp_manager.py
+      +-- mcp_config.example.json
+   +-- gui/                    # GUI components
++-- scripts/
+   +-- __init__.py
+   +-- create_directories.py
+   +-- secure_dirs_setup.py
+   +-- setup_user_path.py
++-- examples/
+   +-- __init__.py
+   +-- demo_integration.py
+   +-- example_config_usage.py
++-- tests/
+   +-- __init__.py
+   +-- test_batch_operations.py
+   +-- test_cli_switching.py
+   +-- test_config_manager.py
+   +-- test_corrupt_file_handling.py
+   +-- test_dependency_validation.py
+   +-- test_dependency_validation_complete.py
+   +-- test_gui_batch.py
+   +-- test_mcp_manager_integration.py
++-- docs/
+    +-- ...
 ```
 
 ## Building and Running
@@ -94,3 +94,5 @@ python -m unittest
 *   **Testing**: The project uses the `unittest` framework for testing. Tests are located in the `tests` directory.
 *   **Modularity**: The project is organized into modules with clear responsibilities. The core logic is separated from the GUI, making it easy to maintain and extend.
 *   **Error Handling**: The project uses custom exceptions (`ConfigManagerError` and `MCPManagerError`) to handle errors related to configuration and MCP management.
+
+
