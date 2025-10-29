@@ -6,13 +6,15 @@ do código em módulos e pacotes dedicados.
 
 ## Conteúdo
 
-1. [Visão Geral](#visao-geral)
-2. [Estrutura do Projeto](#estrutura-do-projeto)
-3. [Componentes Principais](#componentes-principais)
-4. [Configurando o Caminho do Usuário](#configurando-o-caminho-do-usuario)
-5. [Executando a Interface Gráfica](#executando-a-interface-grafica)
-6. [Executando Testes](#executando-testes)
-7. [Exemplos e Ferramentas](#exemplos-e-ferramentas)
+1. [Visao Geral](#visao-geral)
+2. [⚠️ Aviso Importante sobre Antivirus](#aviso-importante-sobre-antivirus)
+3. [Estrutura do Projeto](#estrutura-do-projeto)
+4. [Componentes Principais](#componentes-principais)
+5. [Configurando o Caminho do Usuario](#configurando-o-caminho-do-usuario)
+6. [Instalacao e Execucao](#instalacao-e-execucao)
+7. [Executando Testes](#executando-testes)
+8. [Distribuicao e Download Seguro](#distribuicao-e-download-seguro)
+9. [Exemplos e Ferramentas](#exemplos-e-ferramentas)
 
 ## Visao Geral
 
@@ -23,6 +25,15 @@ servidores MCP permitidos, templates pré-configurados e demais ajustes. O proje
 - Interface gráfica com Tkinter (`mcp_gui.py`) para selecionar o CLI (Gemini/Qwen).
 - Scripts auxiliares e exemplos de uso (`scripts/` e `examples/`).
 
+## ⚠️ Aviso Importante sobre Antivirus
+
+Alguns antivírus e navegadores podem sinalizar o ZIP deste repositório como suspeito (falso positivo), especialmente quando scripts `.bat` executam instalações com `pip`. Para reduzir isso, separamos a instalação da execução:
+
+- Use `INSTALAR.bat` apenas uma vez para instalar dependências.
+- Use `EXECUTAR.bat` para iniciar a aplicação (não instala nada).
+
+Este projeto é open‑source e pode ser inspecionado. Saiba mais em `SECURITY.md`.
+
 ## Estrutura do Projeto
 
 ```
@@ -30,6 +41,7 @@ servidores MCP permitidos, templates pré-configurados e demais ajustes. O proje
 ├── README.md                   # Este arquivo
 ├── CLI.md                      # Documentação da CLI
 ├── requirements.txt            # Dependências do projeto
+├── INSTALAR.bat                # Script de instalacao (Windows)
 ├── EXECUTAR.bat                # Script para execução no Windows
 ├── src/
 │   ├── __init__.py
@@ -133,13 +145,17 @@ esse processo.
 > `ConfigManager` na primeira execução do script ou da aplicação. Se quiser definir manualmente,
 > faça uma cópia do template e ajuste o caminho conforme necessário.
 
-## Executando a Interface Grafica
+## Instalacao e Execucao
 
-Depois de configurar o caminho do usuário, rode a interface:
+### Primeira Execucao (Instalacao)
 
-```bash
-python mcp_gui.py
-```
+- Windows: execute `INSTALAR.bat` (instala dependencias via pip). Execute apenas uma vez.
+- Multiplataforma (manual): `pip install -r requirements.txt`.
+
+### Execucao Normal
+
+- Windows: `EXECUTAR.bat`.
+- Multiplataforma: `python mcp_gui.py`.
 
 A janela principal permite:
 
@@ -148,9 +164,10 @@ A janela principal permite:
 - Editar caminho do usuário via menu Arquivo > Configurar caminho do usuário.
 - Salvar alterações no `settings.json`.
 
-### Dependências Opcionais
+### Dependencias Opcionais
 
-- `ttkthemes`: Opcional, fornece temas adicionais para a interface gráfica. Se não instalado, a aplicação usará o tema padrão do Tkinter.
+- `ttkthemes`: opcional, fornece temas adicionais para a interface gráfica. Se não instalado, a aplicação usa o tema padrão do Tkinter.
+- Instalacao via `INSTALAR.bat` ou manualmente com `pip install -r requirements.txt`.
 
 ## Executando Testes
 
@@ -177,6 +194,13 @@ pip install -r requirements.txt
 ```
 
 Nota: `unittest.mock` já está incluído na instalação padrão do Python, não necessitando instalação adicional.
+
+## Distribuicao e Download Seguro
+
+- Prefira baixar versões oficiais na página de Releases do GitHub do projeto.
+- Releases oficiais tendem a ter menor chance de falso positivo em antivírus.
+- Verifique a autenticidade do release (tags, notas de versão e, se disponível, checksums).
+- Releases permitem notas e changelog claros, facilitando auditoria e adoção.
 
 ## Notas de Atualização
 

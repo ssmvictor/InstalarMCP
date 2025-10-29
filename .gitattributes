@@ -1,2 +1,18 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# --- Windows Batch Scripts ------------------------------------
+# Garante que arquivos .bat usem CRLF (necessario no Windows).
+# Arquivos .bat com LF podem falhar e parecer corrompidos.
+*.bat text eol=crlf
+
+# --- Python Sources --------------------------------------------
+# Python segue a convencao Unix (LF) em codebases multiplataforma.
+*.py text eol=lf
+
+# --- Documentation ---------------------------------------------
+*.md   text eol=lf
+*.txt  text eol=lf
+
+# --- Config / Data ---------------------------------------------
+*.json text eol=lf
