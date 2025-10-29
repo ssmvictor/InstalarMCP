@@ -16,6 +16,45 @@ The main technologies used are:
 *   **Tkinter**: For the graphical user interface.
 *   **unittest**: For testing the core logic.
 
+## Project Structure
+
+```
+├── mcp_gui.py                  # Main GUI application
+├── README.md                   # Project documentation
+├── CLI.md                      # This file
+├── requirements.txt            # Project dependencies
+├── EXECUTAR.bat                # Windows execution script
+├── src/
+│   ├── __init__.py
+│   ├── core/
+│   │   ├── __init__.py
+│   │   ├── config_manager.py
+│   │   ├── mcp_manager.py
+│   │   └── mcp_config.example.json
+│   └── gui/                    # GUI components
+├── scripts/
+│   ├── __init__.py
+│   ├── create_directories.py
+│   ├── secure_dirs_setup.py
+│   └── setup_user_path.py
+├── examples/
+│   ├── __init__.py
+│   ├── demo_integration.py
+│   └── example_config_usage.py
+├── tests/
+│   ├── __init__.py
+│   ├── test_batch_operations.py
+│   ├── test_cli_switching.py
+│   ├── test_config_manager.py
+│   ├── test_corrupt_file_handling.py
+│   ├── test_dependency_validation.py
+│   ├── test_dependency_validation_complete.py
+│   ├── test_gui_batch.py
+│   └── test_mcp_manager_integration.py
+└── docs/
+    └── ...
+```
+
 ## Building and Running
 
 ### Prerequisites

@@ -274,7 +274,7 @@ class MCPManager:
             Path(temp_name).replace(self.settings_path)
 
             # Update cache
-            self._settings_cache = settings
+            self._settings_cache = copy.deepcopy(settings)
             self._logger.info("Settings saved successfully")
             return True
 
@@ -511,6 +511,48 @@ class MCPManager:
         self._logger.info(f"Set MCP '{name}' enabled state to: {new_state}")
         return new_state
 
+    def set_allowed_many(self, names_to_enable: List[str], names_to_disable: List[str]) -> bool:
+        """
+        Enable/disable multiple MCPs at once.
+
+        Args:
+            names_to_enable: List of MCP names to enable
+            names_to_disable: List of MCP names to disable
+
+        Returns:
+            True if successful
+
+        Raises:
+            MCPManagerError: If any MCP doesn't exist
+        """
+        settings = self.load_settings()
+        mcp_servers = settings.get('mcpServers', {})
+        allowed_list = settings.setdefault('mcp', {}).setdefault('allowed', [])
+
+        # Validate all MCPs exist
+        all_names = set(names_to_enable + names_to_disable)
+        for name in all_names:
+            if name not in mcp_servers:
+                raise MCPManagerError(f"MCP '{name}' not found")
+
+        # Apply changes in memory
+        # Enable MCPs
+        for name in names_to_enable:
+            if name not in allowed_list:
+                allowed_list.append(name)
+                self._logger.debug(f"Enabled MCP '{name}'")
+
+        # Disable MCPs
+        for name in names_to_disable:
+            if name in allowed_list:
+                allowed_list.remove(name)
+                self._logger.debug(f"Disabled MCP '{name}'")
+
+        # Save settings once
+        self.save_settings(settings)
+        self._logger.info(f"Updated {len(names_to_enable)} enabled and {len(names_to_disable)} disabled MCPs")
+        return True
+
     def get_mcp_details(self, name: str) -> Optional[Dict[str, Any]]:
         """
         Get details of a specific MCP server.
@@ -586,19 +628,20 @@ class MCPManager:
         self._logger.info(f"Updated MCP '{name}'")
         return True
 
-    def install_from_template(self, template_name: str, enable: bool = True) -> bool:
+    def install_from_template(self, template_name: str, enable: bool = True, skip_dependency_check: bool = False) -> bool:
         """
         Install an MCP from a predefined template.
 
         Args:
             template_name: Name of the template to install
             enable: Whether to enable the MCP after installation
+            skip_dependency_check: If True, skip dependency validation
 
         Returns:
             True if successful
 
         Raises:
-            MCPManagerError: If template doesn't exist or MCP already exists
+            MCPManagerError: If template doesn't exist, MCP already exists, or dependencies are missing
         """
         # Check if template exists
         if template_name not in MCP_TEMPLATES:
@@ -611,6 +654,13 @@ class MCPManager:
         mcps = self.get_mcps()
         if template["name"] in mcps:
             raise MCPManagerError(f"MCP '{template['name']}' already exists")
+
+        # Check dependencies unless explicitly skipped
+        if not skip_dependency_check:
+            missing_deps = self.get_missing_dependencies(template_name)
+            if missing_deps:
+                dep_list = ", ".join(missing_deps)
+                raise MCPManagerError(f"Dependências ausentes: {dep_list}. Instale as dependências antes de continuar.")
 
         # Install MCP
         self.add_mcp(template["name"], template["command"], template["args"])
@@ -690,4 +740,44 @@ class MCPManager:
 
         # Clear cache to force reload
         self._settings_cache = None
+
+    def check_command_availability(self, command: str) -> bool:
+        """
+        Check if a command is available in the system PATH.
+        
+        Args:
+            command: The command to check (e.g., 'npx', 'uvx')
+            
+        Returns:
+            True if the command is available, False otherwise
+        """
+        return shutil.which(command) is not None
+
+    def get_missing_dependencies(self, template_name: str) -> List[str]:
+        """
+        Get list of missing dependencies for a template.
+        
+        Args:
+            template_name: Name of the template to check
+            
+        Returns:
+            List of missing commands (empty list if all dependencies are available)
+            
+        Raises:
+            MCPManagerError: If template doesn't exist
+        """
+        if template_name not in MCP_TEMPLATES:
+            raise MCPManagerError(f"Template '{template_name}' not found")
+        
+        template = MCP_TEMPLATES[template_name]
+        command = template.get('command')
+        
+        if not command:
+            return []
+        
+        missing = []
+        if not self.check_command_availability(command):
+            missing.append(command)
+        
+        return missing
 

@@ -26,16 +26,19 @@ servidores MCP permitidos, templates pré-configurados e demais ajustes. O proje
 ## Estrutura do Projeto
 
 ```
-mcp/
 ├── mcp_gui.py                  # Interface gráfica principal
 ├── README.md                   # Este arquivo
+├── CLI.md                      # Documentação da CLI
+├── requirements.txt            # Dependências do projeto
+├── EXECUTAR.bat                # Script para execução no Windows
 ├── src/
 │   ├── __init__.py
-│   └── core/
-│       ├── __init__.py
-│       ├── config_manager.py
-│       ├── mcp_manager.py
-│       └── mcp_config.json
+│   ├── core/
+│   │   ├── __init__.py
+│   │   ├── config_manager.py
+│   │   ├── mcp_manager.py
+│   │   └── mcp_config.example.json
+│   └── gui/                    # Componentes da interface gráfica
 ├── scripts/
 │   ├── __init__.py
 │   ├── create_directories.py
@@ -47,8 +50,13 @@ mcp/
 │   └── example_config_usage.py
 ├── tests/
 │   ├── __init__.py
+│   ├── test_batch_operations.py
+│   ├── test_cli_switching.py
 │   ├── test_config_manager.py
 │   ├── test_corrupt_file_handling.py
+│   ├── test_dependency_validation.py
+│   ├── test_dependency_validation_complete.py
+│   ├── test_gui_batch.py
 │   └── test_mcp_manager_integration.py
 └── docs/
     └── ...
@@ -140,6 +148,10 @@ A janela principal permite:
 - Editar caminho do usuário via menu Arquivo > Configurar caminho do usuário.
 - Salvar alterações no `settings.json`.
 
+### Dependências Opcionais
+
+- `ttkthemes`: Opcional, fornece temas adicionais para a interface gráfica. Se não instalado, a aplicação usará o tema padrão do Tkinter.
+
 ## Executando Testes
 
 Os testes estão em `tests/` e usam `unittest`. Para executar todo o conjunto:
@@ -153,6 +165,18 @@ python -m unittest
 ```bash
 python -m unittest tests.test_config_manager
 ```
+
+### Dependências de Teste
+
+- `unittest.mock`: Parte da biblioteca padrão do Python (versão 3.3+), utilizado para testes que necessitam de mocking (simulação de componentes).
+
+Para instalar as dependências:
+
+```bash
+pip install -r requirements.txt
+```
+
+Nota: `unittest.mock` já está incluído na instalação padrão do Python, não necessitando instalação adicional.
 
 ## Notas de Atualização
 
