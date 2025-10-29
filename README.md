@@ -7,7 +7,7 @@ do cÃ³digo em mÃ³dulos e pacotes dedicados.
 ## ConteÃºdo
 
 1. [Visao Geral](#visao-geral)
-2. [âš ï¸ Aviso Importante sobre Antivirus](#aviso-importante-sobre-antivirus)
+2.
 3. [Estrutura do Projeto](#estrutura-do-projeto)
 4. [Componentes Principais](#componentes-principais)
 5. [Configurando o Caminho do Usuario](#configurando-o-caminho-do-usuario)
@@ -25,14 +25,6 @@ servidores MCP permitidos, templates prÃ©-configurados e demais ajustes. O pro
 - Interface grÃ¡fica com Tkinter (`mcp_gui.py`) para selecionar o CLI (Gemini/Qwen).
 - Scripts auxiliares e exemplos de uso (`scripts/` e `examples/`).
 
-## âš ï¸ Aviso Importante sobre Antivirus
-
-Alguns antivÃ­rus e navegadores podem sinalizar o ZIP deste repositÃ³rio como suspeito (falso positivo), especialmente quando scripts `.bat` executam instalaÃ§Ãµes com `pip`. Para reduzir isso, separamos a instalaÃ§Ã£o da execuÃ§Ã£o:
-
-- Use `INSTALAR.bat` apenas uma vez para instalar dependÃªncias.
-- Use `EXECUTAR.bat` para iniciar a aplicaÃ§Ã£o (nÃ£o instala nada).
-
-Este projeto Ã© openâ€‘source e pode ser inspecionado. Saiba mais em `SECURITY.md`.
 
 ## Estrutura do Projeto
 
@@ -220,4 +212,6 @@ Nota: `unittest.mock` jÃ¡ estÃ¡ incluÃ­do na instalaÃ§Ã£o padrÃ£o do
 
 Esses arquivos podem ser usados como referÃªncia ao desenvolver integraÃ§Ãµes ou
 automatizaÃ§Ãµes adicionais.
+
+
 
