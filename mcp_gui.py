@@ -44,6 +44,8 @@ class MCPGUI:
         self.mcp_manager = None
         self.mcp_vars = {}
         self.pending_changes = False
+        self.temperature_var = None
+        self.temperature_frame = None
         
         # Inicializar a janela principal com tratamento de erro para o tema
         self._init_window_with_theme()
@@ -119,7 +121,7 @@ class MCPGUI:
         """
         try:
             self.config_manager = ConfigManager()
-            self.mcp_manager = MCPManager()
+            self.mcp_manager = MCPManager(config_manager=self.config_manager)
             logger.info("Gerenciadores inicializados com sucesso")
         except Exception as e:
             logger.error(f"Erro ao inicializar gerenciadores: {e}")
@@ -206,7 +208,30 @@ class MCPGUI:
             text="Alterar Caminho",
             command=self._change_user_path
         ).pack(pady=5)
-        
+
+        # Frame para configurações do modelo (Gemini e Qwen)
+        self.temperature_frame = ttk.LabelFrame(main_frame, text="Configurações do Modelo", padding="10")
+        self.temperature_frame.pack(fill='x', pady=(0, 20))
+
+        # Checkbox para temperature 0.0
+        self.temperature_var = tk.BooleanVar()
+        self.temperature_checkbox = ttk.Checkbutton(
+            self.temperature_frame,
+            text="Temperature 0.0",
+            variable=self.temperature_var,
+            command=self._on_temperature_change
+        )
+        self.temperature_checkbox.pack(anchor='w', pady=5)
+
+        # Label explicativa
+        temp_desc_label = ttk.Label(
+            self.temperature_frame,
+            text="Ativar para definir temperature como 0.0 (respostas mais determinísticas)",
+            font=('TkDefaultFont', 9),
+            foreground='gray'
+        )
+        temp_desc_label.pack(anchor='w', padx=(20, 0), pady=(0, 5))
+
         # Botão para salvar configurações
         ttk.Button(
             main_frame,
@@ -340,10 +365,14 @@ class MCPGUI:
             
             # Carregar lista de MCPs
             self._refresh_mcp_list()
-            
+
             # Carregar lista de templates
             self._refresh_templates_list()
-            
+
+            # Carregar configuração de temperature e atualizar UI
+            self._update_temperature_visibility()
+            self._load_temperature_state()
+
             self.status_label.config(text="Dados carregados com sucesso")
             
         except Exception as e:
@@ -490,9 +519,14 @@ class MCPGUI:
         try:
             self.config_manager.set_cli_type(self.cli_var.get())
             
-            # Após persistir, então chamar refresh_settings_path() e _refresh_mcp_list()
+            # Após persistir, então chamar refresh_settings_path(), _refresh_mcp_list() e _refresh_templates_list()
             self.mcp_manager.refresh_settings_path()
             self._refresh_mcp_list()
+            self._refresh_templates_list()
+
+            # Atualizar visibilidade do checkbox de temperature
+            self._update_temperature_visibility()
+
             self.status_label.config(text=f"CLI alterado para {self.cli_var.get()}")
         except ConfigManagerError as e:
             logger.error(f"Erro ao persistir tipo de CLI: {e}")
@@ -525,6 +559,7 @@ class MCPGUI:
             # Atualizar o MCP Manager
             self.mcp_manager.refresh_settings_path()
             self._refresh_mcp_list()
+            self._refresh_templates_list()
             
             messagebox.showinfo("Sucesso", "Configurações salvas com sucesso!")
             self.status_label.config(text="Configurações salvas")
@@ -585,6 +620,7 @@ class MCPGUI:
                 # Atualizar o MCP Manager
                 self.mcp_manager.refresh_settings_path()
                 self._refresh_mcp_list()
+                self._refresh_templates_list()
                 
                 messagebox.showinfo("Sucesso", "Caminho do usuário alterado com sucesso!")
                 self.status_label.config(text="Caminho do usuário alterado")
@@ -771,7 +807,66 @@ class MCPGUI:
                 self._save_mcp_changes()
         
         self.root.destroy()
-    
+
+    def _update_temperature_visibility(self):
+        """
+        Atualiza a visibilidade do checkbox de temperature baseado no CLI selecionado
+        """
+        try:
+            cli_type = self.config_manager.get_cli_type()
+
+            if self.temperature_frame is not None:
+                if cli_type in ["gemini", "qwen"]:
+                    # Mostrar para Gemini e Qwen
+                    self.temperature_frame.pack(fill='x', pady=(0, 20))
+                    self._load_temperature_state()
+                else:
+                    # Esconder para outros CLIs
+                    self.temperature_frame.pack_forget()
+        except Exception as e:
+            logger.error(f"Erro ao atualizar visibilidade do temperature: {e}")
+
+    def _load_temperature_state(self):
+        """
+        Carrega o estado atual do temperature no checkbox
+        """
+        try:
+            cli_type = self.config_manager.get_cli_type()
+            if self.temperature_var is not None and cli_type in ["gemini", "qwen"]:
+                is_zero = self.mcp_manager.is_temperature_zero()
+                self.temperature_var.set(is_zero)
+        except Exception as e:
+            logger.error(f"Erro ao carregar estado do temperature: {e}")
+
+    def _on_temperature_change(self):
+        """
+        Manipulador para mudança do checkbox de temperature
+        """
+        try:
+            cli_type = self.config_manager.get_cli_type()
+            if cli_type not in ["gemini", "qwen"]:
+                return
+
+            is_checked = self.temperature_var.get()
+
+            if is_checked:
+                # Definir temperature para 0.0
+                self.mcp_manager.set_temperature_zero()
+                self.status_label.config(text="Temperature definida para 0.0")
+            else:
+                # Definir temperature para valor padrão (0.7)
+                self.mcp_manager.set_temperature(0.7)
+                self.status_label.config(text="Temperature definida para 0.7")
+
+        except Exception as e:
+            logger.error(f"Erro ao alterar temperature: {e}")
+            messagebox.showerror("Erro", f"Erro ao alterar temperature:\n{e}")
+            # Reverter checkbox em caso de erro
+            try:
+                self._load_temperature_state()
+            except:
+                pass
+
     def run(self):
         """
         Inicia o loop principal da interface gráfica

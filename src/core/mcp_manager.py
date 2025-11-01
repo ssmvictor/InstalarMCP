@@ -54,7 +54,7 @@ class MCPManager:
     with data validation.
     """
 
-    def __init__(self, settings_path: Optional[str] = None, user_base_path: Optional[str] = None):
+    def __init__(self, settings_path: Optional[str] = None, user_base_path: Optional[str] = None, config_manager: Optional[ConfigManager] = None):
         """
         Initialize the MCP Manager.
 
@@ -65,15 +65,19 @@ class MCPManager:
                             If provided, settings_path will be constructed as:
                             user_base_path / ".gemini" / "settings.json"
                             Takes priority over ConfigManager.
-        
+            config_manager: Optional ConfigManager instance to use.
+                            If provided, will be used instead of creating a new instance.
+
         Priority order:
             1. settings_path (if provided)
             2. user_base_path (if provided)
-            3. ConfigManager.get_user_path() (if configured)
-            4. Path.home() (default fallback)
+            3. config_manager (if provided)
+            4. ConfigManager.get_user_path() (if configured)
+            5. Path.home() (default fallback)
         """
         self._logger = logging.getLogger(__name__)
         self._settings_cache = None
+        self._external_config_manager = config_manager
 
         if settings_path is not None:
             self.settings_path = Path(settings_path)
@@ -81,8 +85,15 @@ class MCPManager:
             return
 
         try:
-            config_manager = ConfigManager()
-            cli_type = config_manager.get_cli_type()
+            # Use provided config manager or create a new one
+            if config_manager is not None:
+                config_mgr = config_manager
+                self._logger.debug("Using provided ConfigManager instance")
+            else:
+                config_mgr = ConfigManager()
+                self._logger.debug("Created new ConfigManager instance")
+
+            cli_type = config_mgr.get_cli_type()
             cli_dir = f".{cli_type}"
 
             if user_base_path is not None:
@@ -91,7 +102,7 @@ class MCPManager:
                 self._logger.info(f"Using settings path from user_base_path: {self.settings_path}")
                 return
 
-            user_path = config_manager.get_user_path()
+            user_path = config_mgr.get_user_path()
 
             if user_path:
                 try:
@@ -142,6 +153,7 @@ class MCPManager:
                     "ide": {"hasSeenNudge": True, "enabled": True},
                     "mcp": {"allowed": []},
                     "mcpServers": {},
+                    "model": {"temperature": 0.7},
                     "security": {"auth": {"selectedType": "oauth-personal"}},
                     "ui": {"theme": "Default"}
                 }
@@ -172,6 +184,17 @@ class MCPManager:
                         continue
                     if not isinstance(args, list) or any(not isinstance(a, str) for a in args):
                         cfg['args'] = [str(a) for a in args] if isinstance(args, list) else []
+            # model
+            if not isinstance(settings.get('model'), dict):
+                settings['model'] = {'temperature': 0.7}
+            else:
+                model = settings['model']
+                if not isinstance(model.get('temperature'), (int, float)):
+                    model['temperature'] = 0.7
+                elif model['temperature'] < 0:
+                    model['temperature'] = 0.0
+                elif model['temperature'] > 2:
+                    model['temperature'] = 2.0
 
             self._settings_cache = settings
             return copy.deepcopy(self._settings_cache)
@@ -204,6 +227,7 @@ class MCPManager:
                         "ide": {"hasSeenNudge": True, "enabled": True},
                         "mcp": {"allowed": []},
                         "mcpServers": {},
+                        "model": {"temperature": 0.7},
                         "security": {"auth": {"selectedType": "oauth-personal"}},
                         "ui": {"theme": "Default"}
                     }
@@ -261,6 +285,17 @@ class MCPManager:
                     raise MCPManagerError(f"MCP '{name}' 'args' must be a list")
                 if any(not isinstance(arg, str) for arg in cfg['args']):
                     raise MCPManagerError(f"MCP '{name}' 'args' must contain only strings")
+
+            # Validate model structure (if present)
+            if 'model' in settings:
+                if not isinstance(settings['model'], dict):
+                    raise MCPManagerError("'model' must be a dictionary")
+                if 'temperature' in settings['model']:
+                    temp = settings['model']['temperature']
+                    if not isinstance(temp, (int, float)):
+                        raise MCPManagerError("'model.temperature' must be a number")
+                    if temp < 0 or temp > 2:
+                        raise MCPManagerError("'model.temperature' must be between 0.0 and 2.0")
 
             # Ensure target directory exists
             self.settings_path.parent.mkdir(parents=True, exist_ok=True)
@@ -699,15 +734,23 @@ class MCPManager:
                             If provided, settings_path will be constructed as:
                             user_base_path / ".gemini" / "settings.json"
                             Takes priority over ConfigManager reload.
-        
+
         Priority order:
             1. settings_path (if provided)
             2. user_base_path (if provided)
-            3. ConfigManager.get_user_path() (reload from config)
-            4. Path.home() (default fallback)
+            3. External ConfigManager (if available)
+            4. ConfigManager.get_user_path() (reload from config)
+            5. Path.home() (default fallback)
         """
         try:
-            config_manager = ConfigManager()
+            # Use external config manager if available, otherwise create new one
+            if self._external_config_manager is not None:
+                config_manager = self._external_config_manager
+                self._logger.debug("Using external ConfigManager for refresh")
+            else:
+                config_manager = ConfigManager()
+                self._logger.debug("Created new ConfigManager for refresh")
+
             cli_type = config_manager.get_cli_type()
             cli_dir = f".{cli_type}"
 
@@ -780,4 +823,67 @@ class MCPManager:
             missing.append(command)
         
         return missing
+
+    def get_temperature(self) -> float:
+        """
+        Get the current temperature setting.
+
+        Returns:
+            The current temperature value (0.0 to 2.0)
+        """
+        settings = self.load_settings()
+        model = settings.get('model', {})
+        return float(model.get('temperature', 0.7))
+
+    def set_temperature(self, temperature: float) -> bool:
+        """
+        Set the temperature value.
+
+        Args:
+            temperature: Temperature value (0.0 to 2.0)
+
+        Returns:
+            True if successful
+
+        Raises:
+            MCPManagerError: If temperature is invalid or save fails
+        """
+        if not isinstance(temperature, (int, float)):
+            raise MCPManagerError("Temperature must be a number")
+
+        temperature = float(temperature)
+
+        if temperature < 0.0 or temperature > 2.0:
+            raise MCPManagerError("Temperature must be between 0.0 and 2.0")
+
+        settings = self.load_settings()
+
+        # Ensure model section exists
+        if 'model' not in settings:
+            settings['model'] = {}
+
+        settings['model']['temperature'] = temperature
+
+        # Save settings
+        self.save_settings(settings)
+        self._logger.info(f"Temperature set to: {temperature}")
+        return True
+
+    def is_temperature_zero(self) -> bool:
+        """
+        Check if temperature is set to 0.0.
+
+        Returns:
+            True if temperature is 0.0, False otherwise
+        """
+        return abs(self.get_temperature() - 0.0) < 0.0001
+
+    def set_temperature_zero(self) -> bool:
+        """
+        Set temperature to 0.0.
+
+        Returns:
+            True if successful
+        """
+        return self.set_temperature(0.0)
 
