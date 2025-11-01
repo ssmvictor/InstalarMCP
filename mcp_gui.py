@@ -171,7 +171,7 @@ class MCPGUI:
     
     def _setup_ui(self):
         """
-        Configura os componentes da interface grÃ¡fica
+        Configura os componentes da interface Gráfica
         """
         # Criar a barra de menu
         menubar = tk.Menu(self.root)
@@ -188,7 +188,7 @@ class MCPGUI:
         self.notebook = ttk.Notebook(self.root)
         self.notebook.pack(fill='both', expand=True, padx=15, pady=15)
         
-        # Aba de ConfiguraÃ§Ã£o
+        # Aba de configurações
         self._setup_config_tab()
         
         # Aba de Servidores MCP
@@ -224,31 +224,31 @@ class MCPGUI:
     
     def _setup_config_tab(self):
         """
-        Configura a aba de configuraÃ§Ã£o do CLI
+        Configura a aba de configurações do CLI
         """
         config_frame = ttk.Frame(self.notebook)
-        self.notebook.add(config_frame, text="ConfiguraÃ§Ã£o")
-        
-        # Frame principal com mais espaÃ§amento
+        self.notebook.add(config_frame, text="Configurações")
+
+        # Frame principal com mais espaçamento
         main_frame = ttk.Frame(config_frame, padding="30")
         main_frame.pack(fill='both', expand=True)
-        
-        # TÃ­tulo
+
+        # Título
         title_label = ttk.Label(
             main_frame,
-            text="ConfiguraÃ§Ã£o do CLI",
+            text="Configuração do CLI",
             font=('TkDefaultFont', 16, 'bold') # Fonte maior
         )
         title_label.pack(pady=(0, 25))
-        
-        # Frame para seleÃ§Ã£o do CLI
+
+        # Frame para seleção do CLI
         cli_frame = ttk.LabelFrame(main_frame, text="Selecionar CLI", padding="15")
         cli_frame.pack(fill='x', pady=(0, 25))
-        
-        # VariÃ¡vel para o tipo de CLI
+
+        # Variável para o tipo de CLI
         self.cli_var = tk.StringVar()
-        
-        # Radio buttons para seleÃ§Ã£o do CLI
+
+        # Radio buttons para seleção do CLI
         ttk.Radiobutton(
             cli_frame,
             text="Gemini",
@@ -280,33 +280,38 @@ class MCPGUI:
             command=self._change_user_path
         ).pack(pady=8)
 
-        # Frame para configuraÃ§Ãµes do modelo (Gemini e Qwen)
-        self.temperature_frame = ttk.LabelFrame(main_frame, text="ConfiguraÃ§Ãµes do Modelo", padding="15")
+        # Frame para configurações do modelo (Gemini e Qwen)
+        self.temperature_frame = ttk.LabelFrame(main_frame, text="Configurações do Modelo", padding="15")
         self.temperature_frame.pack(fill='x', pady=(0, 25))
 
-        # Checkbox para temperature 0.0
-        self.temperature_var = tk.BooleanVar()
-        self.temperature_checkbox = ttk.Checkbutton(
-            self.temperature_frame,
-            text="Temperature 0.0",
-            variable=self.temperature_var,
-            command=self._on_temperature_change
-        )
-        self.temperature_checkbox.pack(anchor='w', pady=8)
-
-        # Label explicativa
+        # Variável e controle deslizante de temperatura (0.0 a 2.0)
+        self.temperature_var = tk.DoubleVar()
         temp_desc_label = ttk.Label(
             self.temperature_frame,
-            text="Ativar para definir temperature como 0.0 (respostas mais determinÃ­sticas)",
+            text="Ajuste a temperatura do modelo (0.0 = mais determinístico, 2.0 = mais criativo)",
             font=('TkDefaultFont', 9),
             foreground='gray'
         )
-        temp_desc_label.pack(anchor='w', padx=(20, 0), pady=(0, 8))
+        temp_desc_label.pack(anchor='w', padx=(0, 0), pady=(0, 8))
+        self.temperature_scale = ttk.Scale(
+            self.temperature_frame,
+            from_=0.0,
+            to=2.0,
+            orient='horizontal',
+            length=300,
+            variable=self.temperature_var,
+            command=self._on_temperature_change
+        )
+        self.temperature_scale.pack(anchor='w', pady=8)
+        # Persistir somente ao soltar o mouse
+        self.temperature_scale.bind('<ButtonRelease-1>', lambda e: self._on_temperature_commit())
+        self.temperature_value_label = ttk.Label(self.temperature_frame, text="Valor atual: -")
+        self.temperature_value_label.pack(anchor='w', padx=(0, 0), pady=(0, 8))
 
-        # BotÃ£o para salvar configuraÃ§Ãµes
+        # Botão para salvar configurações
         ttk.Button(
             main_frame,
-            text="Salvar ConfiguraÃ§Ãµes",
+            text="Salvar Configurações",
             command=self._save_config
         ).pack(pady=15)
     
@@ -417,24 +422,24 @@ class MCPGUI:
         Carrega os dados iniciais na interface
         """
         try:
-            # Carregar configuraÃ§Ã£o do CLI
+            # Carregar configurações do CLI
             cli_type = self.config_manager.get_cli_type()
             self.cli_var.set(cli_type)
-            
-            # Carregar caminho do usuÃ¡rio
+
+            # Carregar caminho do usuário
             user_path = self.config_manager.get_user_path()
             if user_path:
                 self.path_label.config(text=user_path)
             else:
-                self.path_label.config(text="NÃ£o configurado")
-            
+                self.path_label.config(text="Não configurado")
+
             # Carregar lista de MCPs
             self._refresh_mcp_list()
 
             # Carregar lista de templates
             self._refresh_templates_list()
 
-            # Carregar configuraÃ§Ã£o de temperature e atualizar UI
+            # Carregar configuração de temperatura e atualizar UI
             self._update_temperature_visibility()
             self._load_temperature_state()
 
@@ -563,18 +568,18 @@ class MCPGUI:
     
     def _on_cli_change(self):
         """
-        Manipulador para mudanÃ§a do tipo de CLI
+        Manipulador para mudança do tipo de CLI
         """
-        # Primeiro persistir a mudanÃ§a via ConfigManager antes de refresh_settings_path()
+        # Primeiro persistir a mudança via ConfigManager antes de refresh_settings_path()
         try:
             self.config_manager.set_cli_type(self.cli_var.get())
-            
-            # ApÃ³s persistir, entÃ£o chamar refresh_settings_path(), _refresh_mcp_list() e _refresh_templates_list()
+
+            # Após persistir, então chamar refresh_settings_path(), _refresh_mcp_list() e _refresh_templates_list()
             self.mcp_manager.refresh_settings_path()
             self._refresh_mcp_list()
             self._refresh_templates_list()
 
-            # Atualizar visibilidade do checkbox de temperature
+            # Atualizar visibilidade do checkbox de temperatura
             self._update_temperature_visibility()
 
             self.status_label.config(text=f"CLI alterado para {self.cli_var.get()}")
@@ -596,11 +601,11 @@ class MCPGUI:
         Manipulador para toggle de MCP
         """
         self.pending_changes = True
-        self.changes_label.config(text="HÃ¡ alteraÃ§Ãµes pendentes", foreground='red')
+        self.changes_label.config(text="Há alterações pendentes", foreground='red')
     
     def _save_config(self):
         """
-        Salva as configuraÃ§Ãµes do CLI
+        Salva as configurações do CLI
         """
         try:
             cli_type = self.cli_var.get()
@@ -610,17 +615,17 @@ class MCPGUI:
             self.mcp_manager.refresh_settings_path()
             self._refresh_mcp_list()
             self._refresh_templates_list()
-            
-            messagebox.showinfo("Sucesso", "ConfiguraÃ§Ãµes salvas com sucesso!")
-            self.status_label.config(text="ConfiguraÃ§Ãµes salvas")
-            
+
+            messagebox.showinfo("Sucesso", "Configurações salvas com sucesso!")
+            self.status_label.config(text="Configurações salvas")
+
         except Exception as e:
-            logger.error(f"Erro ao salvar configuraÃ§Ãµes: {e}")
-            messagebox.showerror("Erro", f"Erro ao salvar configuraÃ§Ãµes:\n{e}")
-    
+            logger.error(f"Erro ao salvar configurações: {e}")
+            messagebox.showerror("Erro", f"Erro ao salvar configurações:\n{e}")
+
     def _save_mcp_changes(self):
         """
-        Salva as alteraÃ§Ãµes nos MCPs
+        Salva as alterações nos MCPs
         """
         try:
             mcps = self.mcp_manager.get_mcps()
@@ -642,23 +647,23 @@ class MCPGUI:
                 self.mcp_manager.set_allowed_many(names_to_enable, names_to_disable)
                 self.pending_changes = False
                 self.changes_label.config(text="")
-                messagebox.showinfo("Sucesso", "AlteraÃ§Ãµes salvas com sucesso!")
-                self.status_label.config(text="AlteraÃ§Ãµes nos MCPs salvas")
+                messagebox.showinfo("Sucesso", "Alterações salvas com sucesso!")
+                self.status_label.config(text="Alterações nos MCPs salvas")
             else:
-                messagebox.showinfo("InformaÃ§Ã£o", "Nenhuma alteraÃ§Ã£o para salvar")
-        
+                messagebox.showinfo("Informação", "Nenhuma alteração para salvar")
+
         except Exception as e:
-            logger.error(f"Erro ao salvar alteraÃ§Ãµes nos MCPs: {e}")
-            messagebox.showerror("Erro", f"Erro ao salvar alteraÃ§Ãµes:\n{e}")
-    
+            logger.error(f"Erro ao salvar alterações nos MCPs: {e}")
+            messagebox.showerror("Erro", f"Erro ao salvar alterações:\n{e}")
+
     def _change_user_path(self):
         """
-        Abre diÃ¡logo para alterar o caminho do usuÃ¡rio
+        Abre diálogo para alterar o caminho do usuário
         """
         from tkinter import filedialog
         
         path = filedialog.askdirectory(
-            title="Selecione o diretÃ³rio do usuÃ¡rio",
+            title="Selecione o diretório do usuário",
             initialdir=str(self.config_manager.get_user_path() or Path.home())
         )
         
@@ -671,17 +676,17 @@ class MCPGUI:
                 self.mcp_manager.refresh_settings_path()
                 self._refresh_mcp_list()
                 self._refresh_templates_list()
-                
-                messagebox.showinfo("Sucesso", "Caminho do usuÃ¡rio alterado com sucesso!")
-                self.status_label.config(text="Caminho do usuÃ¡rio alterado")
-                
+
+                messagebox.showinfo("Sucesso", "Caminho do usuário alterado com sucesso!")
+                self.status_label.config(text="Caminho do usuário alterado")
+
             except Exception as e:
-                logger.error(f"Erro ao alterar caminho do usuÃ¡rio: {e}")
+                logger.error(f"Erro ao alterar caminho do usuário: {e}")
                 messagebox.showerror("Erro", f"Erro ao alterar caminho:\n{e}")
     
     def _add_mcp_dialog(self):
         """
-        Abre diÃ¡logo para adicionar um novo MCP
+        Abre diálogo para adicionar um novo MCP
         """
         dialog = tk.Toplevel(self.root)
         dialog.title("Adicionar MCP")
@@ -718,7 +723,7 @@ class MCPGUI:
             args_text_content = args_text.get("1.0", tk.END).strip()
             
             if not name or not command:
-                messagebox.showerror("Erro", "Nome e comando sÃ£o obrigatÃ³rios")
+                messagebox.showerror("Erro", "Nome e comando são obrigatórios")
                 return
             
             # Processar argumentos
@@ -826,14 +831,14 @@ class MCPGUI:
         Instala um template
         """
         try:
-            # Verificar dependÃªncias
+            # Verificar dependências
             missing_deps = self.mcp_manager.get_missing_dependencies(template_name)
             if missing_deps:
                 dep_list = ", ".join(missing_deps)
                 if not messagebox.askyesno(
-                    "DependÃªncias Ausentes",
-                    f"As seguintes dependÃªncias estÃ£o ausentes: {dep_list}\n\n"
-                    "Deseja continuar com a instalaÃ§Ã£o?"
+                    "Dependências Ausentes",
+                    f"As seguintes dependências estão ausentes: {dep_list}\n\n"
+                    "Deseja continuar com a instalação?"
                 ):
                     return
             
@@ -851,8 +856,8 @@ class MCPGUI:
         """
         if self.pending_changes:
             if messagebox.askyesno(
-                "AlteraÃ§Ãµes Pendentes",
-                "HÃ¡ alteraÃ§Ãµes pendentes nos MCPs. Deseja salvÃ¡-las antes de sair?"
+                "Alterações Pendentes",
+                "Há alterações pendentes nos MCPs. Deseja salvá-las antes de sair?"
             ):
                 self._save_mcp_changes()
         
@@ -878,40 +883,51 @@ class MCPGUI:
 
     def _load_temperature_state(self):
         """
-        Carrega o estado atual do temperature no checkbox
+        Carrega o valor atual da temperatura e atualiza o slider e o label
         """
         try:
             cli_type = self.config_manager.get_cli_type()
             if self.temperature_var is not None and cli_type in ["gemini", "qwen"]:
-                is_zero = self.mcp_manager.is_temperature_zero()
-                self.temperature_var.set(is_zero)
+                temperature_value = self.mcp_manager.get_temperature()
+                self.temperature_var.set(temperature_value)
+                if hasattr(self, "temperature_value_label") and self.temperature_value_label:
+                    self.temperature_value_label.config(text=f"Valor atual: {temperature_value:.1f}")
         except Exception as e:
             logger.error(f"Erro ao carregar estado do temperature: {e}")
 
-    def _on_temperature_change(self):
+    def _on_temperature_change(self, value=None):
         """
-        Manipulador para mudanÃ§a do checkbox de temperature
+        Atualiza apenas o label com o valor atual durante o arraste do slider
         """
         try:
             cli_type = self.config_manager.get_cli_type()
             if cli_type not in ["gemini", "qwen"]:
                 return
 
-            is_checked = self.temperature_var.get()
+            current_value = self.temperature_var.get()
+            temp_rounded = round(float(current_value), 1)
+            if hasattr(self, "temperature_value_label") and self.temperature_value_label:
+                self.temperature_value_label.config(text=f"Valor atual: {temp_rounded:.1f}")
+        except Exception as e:
+            logger.error(f"Erro ao alterar temperature: {e}")
 
-            if is_checked:
-                # Definir temperature para 0.0
-                self.mcp_manager.set_temperature_zero()
-                self.status_label.config(text="Temperature definida para 0.0")
-            else:
-                # Definir temperature para valor padrÃ£o (0.7)
-                self.mcp_manager.set_temperature(0.7)
-                self.status_label.config(text="Temperature definida para 0.7")
+    def _on_temperature_commit(self):
+        """
+        Persiste o valor ao soltar o mouse no slider
+        """
+        try:
+            cli_type = self.config_manager.get_cli_type()
+            if cli_type not in ["gemini", "qwen"]:
+                return
 
+            current_value = self.temperature_var.get()
+            temp_rounded = round(float(current_value), 1)
+            self.mcp_manager.set_temperature(temp_rounded)
+            if hasattr(self, "status_label") and self.status_label:
+                self.status_label.config(text=f"Temperature definida para {temp_rounded:.1f}")
         except Exception as e:
             logger.error(f"Erro ao alterar temperature: {e}")
             messagebox.showerror("Erro", f"Erro ao alterar temperature:\n{e}")
-            # Reverter checkbox em caso de erro
             try:
                 self._load_temperature_state()
             except:
@@ -926,14 +942,14 @@ class MCPGUI:
 
 def main():
     """
-    FunÃ§Ã£o principal para executar a interface grÃ¡fica
+    Função principal para executar a interface gráfica
     """
     try:
         app = MCPGUI()
         app.run()
     except Exception as e:
-        logger.error(f"Erro ao executar a aplicaÃ§Ã£o: {e}")
-        messagebox.showerror("Erro Fatal", f"Erro ao executar a aplicaÃ§Ã£o:\n{e}")
+        logger.error(f"Erro ao executar a aplicação: {e}")
+        messagebox.showerror("Erro Fatal", f"Erro ao executar a aplicação:\n{e}")
         sys.exit(1)
 
 

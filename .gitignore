@@ -3,3 +3,4 @@ src/core/mcp_config.json
 __pycache__/
 *.pyc
 /.gemini
+/.qwen
