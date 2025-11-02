@@ -154,6 +154,7 @@ class MCPManager:
                     "mcp": {"allowed": []},
                     "mcpServers": {},
                     "model": {"temperature": 0.7},
+                    "generationConfig": {"temperature": 0.7},
                     "security": {"auth": {"selectedType": "oauth-personal"}},
                     "ui": {"theme": "Default"}
                 }
@@ -196,6 +197,18 @@ class MCPManager:
                 elif model['temperature'] > 2:
                     model['temperature'] = 2.0
 
+            # generationConfig
+            if not isinstance(settings.get('generationConfig'), dict):
+                settings['generationConfig'] = {'temperature': 0.7}
+            else:
+                gen_config = settings['generationConfig']
+                if not isinstance(gen_config.get('temperature'), (int, float)):
+                    gen_config['temperature'] = 0.7
+                elif gen_config['temperature'] < 0:
+                    gen_config['temperature'] = 0.0
+                elif gen_config['temperature'] > 2:
+                    gen_config['temperature'] = 2.0
+
             self._settings_cache = settings
             return copy.deepcopy(self._settings_cache)
 
@@ -228,6 +241,7 @@ class MCPManager:
                         "mcp": {"allowed": []},
                         "mcpServers": {},
                         "model": {"temperature": 0.7},
+                        "generationConfig": {"temperature": 0.7},
                         "security": {"auth": {"selectedType": "oauth-personal"}},
                         "ui": {"theme": "Default"}
                     }
@@ -296,6 +310,17 @@ class MCPManager:
                         raise MCPManagerError("'model.temperature' must be a number")
                     if temp < 0 or temp > 2:
                         raise MCPManagerError("'model.temperature' must be between 0.0 and 2.0")
+
+            # Validate generationConfig structure (if present)
+            if 'generationConfig' in settings:
+                if not isinstance(settings['generationConfig'], dict):
+                    raise MCPManagerError("'generationConfig' must be a dictionary")
+                if 'temperature' in settings['generationConfig']:
+                    temp = settings['generationConfig']['temperature']
+                    if not isinstance(temp, (int, float)):
+                        raise MCPManagerError("'generationConfig.temperature' must be a number")
+                    if temp < 0 or temp > 2:
+                        raise MCPManagerError("'generationConfig.temperature' must be between 0.0 and 2.0")
 
             # Ensure target directory exists
             self.settings_path.parent.mkdir(parents=True, exist_ok=True)
@@ -832,8 +857,19 @@ class MCPManager:
             The current temperature value (0.0 to 2.0)
         """
         settings = self.load_settings()
-        model = settings.get('model', {})
-        return float(model.get('temperature', 0.7))
+        
+        # Try to read from model.temperature first (for backward compatibility)
+        model_temp = settings.get('model', {}).get('temperature')
+        if isinstance(model_temp, (int, float)):
+            return float(model_temp)
+        
+        # If model.temperature doesn't exist, try generationConfig.temperature
+        gen_config_temp = settings.get('generationConfig', {}).get('temperature')
+        if isinstance(gen_config_temp, (int, float)):
+            return float(gen_config_temp)
+        
+        # Default fallback
+        return 0.7
 
     def set_temperature(self, temperature: float) -> bool:
         """
@@ -861,8 +897,13 @@ class MCPManager:
         # Ensure model section exists
         if 'model' not in settings:
             settings['model'] = {}
+            
+        # Ensure generationConfig section exists
+        if 'generationConfig' not in settings:
+            settings['generationConfig'] = {}
 
         settings['model']['temperature'] = temperature
+        settings['generationConfig']['temperature'] = temperature
 
         # Save settings
         self.save_settings(settings)

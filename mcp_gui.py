@@ -264,9 +264,9 @@ class MCPGUI:
             value="qwen",
             command=self._on_cli_change
         ).pack(anchor='w', pady=8)
-        
-        # Frame para caminho do usuÃ¡rio
-        path_frame = ttk.LabelFrame(main_frame, text="Caminho do UsuÃ¡rio", padding="15")
+
+        # Frame para caminho do usuário
+        path_frame = ttk.LabelFrame(main_frame, text="Caminho do Usuário", padding="15")
         path_frame.pack(fill='x', pady=(0, 25))
         
         # Label para mostrar o caminho atual
