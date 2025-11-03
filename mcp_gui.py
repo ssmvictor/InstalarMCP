@@ -372,11 +372,11 @@ class MCPGUI:
         
         ttk.Button(
             button_frame,
-            text="Salvar AlteraÃ§Ãµes",
+            text="Salvar Alterações",
             command=self._save_mcp_changes
         ).pack(side='left', padx=5)
         
-        # Label para mostrar status das alteraÃ§Ãµes
+        # Label para mostrar status das alterações
         self.changes_label = ttk.Label(button_frame, text="")
         self.changes_label.pack(side='left', padx=20)
     
@@ -527,7 +527,7 @@ class MCPGUI:
             if not templates:
                 ttk.Label(
                     self.templates_list_frame,
-                    text="Nenhum template disponÃ­vel"
+                    text="Nenhum template disponível"
                 ).pack(pady=20)
                 return
             
@@ -541,8 +541,8 @@ class MCPGUI:
                 # Nome do template
                 name_label = ttk.Label(card_frame, text=name, font=('TkDefaultFont', 12, 'bold'))
                 name_label.grid(row=0, column=0, sticky='w', pady=(0, 10))
-                
-                # DescriÃ§Ã£o
+
+                # Descrição
                 desc_label = ttk.Label(card_frame, text=template.get('description', ''), wraplength=500, justify="left")
                 desc_label.grid(row=1, column=0, sticky='w', padx=(10, 0), pady=(0, 5))
                 
@@ -550,9 +550,9 @@ class MCPGUI:
                 cmd_label = ttk.Label(card_frame, text=f"Comando: {template.get('command', '')}", font=('TkDefaultFont', 9, 'italic'))
                 cmd_label.grid(row=2, column=0, sticky='w', padx=(10, 0), pady=(0, 10))
                 
-                # BotÃ£o de Instalar ou Label de Status
+                # Botão de Instalar ou Label de Status
                 if self.mcp_manager.is_template_installed(name):
-                    status_label = ttk.Label(card_frame, text="âœ“ Instalado", foreground='green', font=('TkDefaultFont', 10, 'bold'))
+                    status_label = ttk.Label(card_frame, text="Já Instalado", foreground='green', font=('TkDefaultFont', 10, 'bold'))
                     status_label.grid(row=3, column=0, sticky='w', padx=(10, 0), pady=(10, 0))
                 else:
                     install_button = ttk.Button(
@@ -783,8 +783,8 @@ class MCPGUI:
         args = details.get('args', [])
         if args:
             args_text.insert("1.0", '\n'.join(args))
-        
-        # Frame para botÃµes
+
+        # Frame para botões
         button_frame = ttk.Frame(main_frame)
         button_frame.grid(row=3, column=0, columnspan=2, pady=25)
         
@@ -793,7 +793,7 @@ class MCPGUI:
             args_text_content = args_text.get("1.0", tk.END).strip()
             
             if not command:
-                messagebox.showerror("Erro", "Comando Ã© obrigatÃ³rio")
+                messagebox.showerror("Erro", "Comando é obrigatório")
                 return
             
             # Processar argumentos
