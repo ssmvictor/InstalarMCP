@@ -55,6 +55,9 @@ class TestCorruptFileHandling(unittest.TestCase):
         # Verificar se arquivo corrompido foi renomeado
         corrupt_files = list(self.gemini_dir.glob("settings.json.corrupt.*"))
         self.assertEqual(len(corrupt_files), 1)
+
+        # O tipo de autenticação padrão depende da CLI configurada (aqui, gemini por padrão)
+        self.assertEqual(settings['security']['auth']['selectedType'], "oauth-personal")
         
         # O arquivo original não é recriado automaticamente, apenas o cache é atualizado
         # Verificar se o cache foi atualizado com estrutura padrão
@@ -114,6 +117,45 @@ class TestCorruptFileHandling(unittest.TestCase):
                 # O caminho deve ser o mesmo, mas sem ter sido processado por resolve()
                 expected_path = Path(user_path).expanduser() / ".gemini" / "settings.json"
                 self.assertEqual(manager.settings_path, expected_path)
+
+    def test_corrupt_json_with_qwen_cli(self):
+        """Testa a recuperação de JSON corrompido com a CLI Qwen selecionada."""
+        # Criar diretório .qwen
+        qwen_dir = Path(self.temp_dir) / ".qwen"
+        qwen_dir.mkdir()
+        settings_file = qwen_dir / "settings.json"
+
+        # Criar arquivo JSON corrompido
+        with open(settings_file, 'w', encoding='utf-8') as f:
+            f.write("{ invalid json")
+
+        # Mock do ConfigManager para retornar 'qwen'
+        with patch('src.core.mcp_manager.ConfigManager') as mock_config_manager:
+            mock_instance = MagicMock()
+            # Usar o temp_dir como "user_path" para que o MCPManager construa o caminho para .qwen
+            mock_instance.get_user_path.return_value = str(Path(self.temp_dir))
+            mock_instance.get_cli_type.return_value = "qwen"
+            mock_config_manager.return_value = mock_instance
+
+            # Instanciar o manager. Ele deve detectar o CLI 'qwen' e usar o diretório .qwen
+            # e passar o user_base_path para o construtor.
+            manager = MCPManager(user_base_path=str(Path(self.temp_dir)), config_manager=mock_instance)
+
+
+        # Carregar as configurações, o que deve acionar a recuperação
+        settings = manager.load_settings()
+
+        # Verificar se o arquivo corrompido foi renomeado
+        corrupt_files = list(qwen_dir.glob("settings.json.corrupt.*"))
+        self.assertEqual(len(corrupt_files), 1)
+
+        # Verificar se o novo settings tem o tipo de autenticação correto
+        self.assertEqual(settings['security']['auth']['selectedType'], "qwen-oauth")
+
+        # Verificar a estrutura completa
+        self.assertIn("mcpServers", settings)
+        self.assertIn("mcp", settings)
+        self.assertIn("model", settings)
 
 
 if __name__ == "__main__":

@@ -44,6 +44,8 @@ class TestMCPManagerIntegration(unittest.TestCase):
         self.config_manager = ConfigManager(str(self.config_file))
         
         # Criar estrutura inicial do settings.json
+        # Estes valores representam um arquivo pré-existente e, por isso,
+        # mantêm "oauth-personal" independentemente do CLI.
         initial_settings = {
             "ide": {"hasSeenNudge": True, "enabled": True},
             "mcp": {"allowed": []},
@@ -161,6 +163,8 @@ class TestMCPManagerIntegration(unittest.TestCase):
         new_gemini_dir.mkdir()
         
         # Criar novo settings.json
+        # Estes valores representam um arquivo pré-existente e, por isso,
+        # mantêm "oauth-personal" independentemente do CLI.
         new_settings_file = new_gemini_dir / "settings.json"
         initial_settings = {
             "ide": {"hasSeenNudge": True, "enabled": True},
@@ -214,6 +218,86 @@ class TestMCPManagerIntegration(unittest.TestCase):
             manager = MCPManager()
             expected_path = Path.home() / ".gemini" / "settings.json"
             self.assertEqual(manager.settings_path, expected_path)
+
+    def test_qwen_auth_type_in_default_settings(self):
+        """Testa se o tipo de autenticação 'qwen-oauth' é definido para CLI 'qwen'."""
+        # Remover o settings.json padrão para forçar a criação de um novo
+        if self.settings_file.exists():
+            self.settings_file.unlink()
+
+        # Criar diretório .qwen
+        qwen_dir = self.user_dir / ".qwen"
+        qwen_dir.mkdir()
+
+        # Configurar o ConfigManager para retornar 'qwen'
+        with patch('src.core.mcp_manager.ConfigManager') as mock_config_manager:
+            mock_instance = MagicMock()
+            mock_instance.get_user_path.return_value = str(self.user_dir)
+            mock_instance.get_cli_type.return_value = "qwen"
+            mock_config_manager.return_value = mock_instance
+
+            # Instanciar MCPManager, que deve usar o caminho .qwen
+            manager = MCPManager(config_manager=mock_instance)
+            self.assertEqual(manager.settings_path, qwen_dir / "settings.json")
+
+            # Carregar as configurações (deve criar o arquivo padrão)
+            settings = manager.load_settings()
+            manager.save_settings(settings) # Salva para podermos ler o arquivo
+
+        # Verificar se o tipo de autenticação está correto
+        self.assertEqual(settings['security']['auth']['selectedType'], "qwen-oauth")
+
+        # Verificar se o arquivo foi criado no lugar certo
+        self.assertTrue((qwen_dir / "settings.json").exists())
+
+    def test_gemini_auth_type_in_default_settings(self):
+        """Testa se o tipo de autenticação 'oauth-personal' é definido para CLI 'gemini'."""
+        # Remover o settings.json padrão para forçar a criação de um novo
+        if self.settings_file.exists():
+            self.settings_file.unlink()
+
+        # Configurar o ConfigManager para retornar 'gemini'
+        with patch('src.core.mcp_manager.ConfigManager') as mock_config_manager:
+            mock_instance = MagicMock()
+            mock_instance.get_user_path.return_value = str(self.user_dir)
+            mock_instance.get_cli_type.return_value = "gemini"
+            mock_config_manager.return_value = mock_instance
+
+            # Instanciar MCPManager
+            manager = MCPManager(config_manager=mock_instance)
+            self.assertEqual(manager.settings_path, self.gemini_dir / "settings.json")
+
+            # Carregar as configurações (deve criar o arquivo padrão)
+            settings = manager.load_settings()
+
+        # Verificar se o tipo de autenticação está correto
+        self.assertEqual(settings['security']['auth']['selectedType'], "oauth-personal")
+
+    def test_explicit_settings_path_qwen_infers_qwen_oauth(self):
+        """Testa se o auth type é inferido como 'qwen-oauth' com um settings_path explícito."""
+        # Criar diretório .qwen e um settings_path explícito
+        qwen_dir = self.user_dir / ".qwen"
+        qwen_dir.mkdir()
+        explicit_settings_path = qwen_dir / "settings.json"
+
+        # Garantir que o arquivo não existe
+        if explicit_settings_path.exists():
+            explicit_settings_path.unlink()
+
+        # Mock do ConfigManager para retornar 'gemini' (para provar que é ignorado)
+        with patch('src.core.mcp_manager.ConfigManager') as mock_config_manager:
+            mock_instance = MagicMock()
+            mock_instance.get_cli_type.return_value = "gemini"
+            mock_config_manager.return_value = mock_instance
+
+            # Inicializar MCPManager com o caminho explícito
+            manager = MCPManager(settings_path=str(explicit_settings_path))
+            
+            # Forçar a criação do settings
+            settings = manager.load_settings()
+
+        # Verificar se o auth type foi inferido corretamente do caminho
+        self.assertEqual(settings['security']['auth']['selectedType'], "qwen-oauth")
 
 
 if __name__ == "__main__":

@@ -133,6 +133,56 @@ class MCPManager:
         """Context manager exit."""
         self._settings_cache = None
 
+    def _get_auth_type(self) -> str:
+        """
+        Determines the authentication type based on the configured CLI.
+
+        Returns:
+            "qwen-oauth" if CLI is "qwen", otherwise "oauth-personal".
+        """
+        try:
+            # Try to infer from settings_path first
+            if hasattr(self, 'settings_path') and self.settings_path:
+                parent_name = self.settings_path.parent.name
+                if parent_name == ".qwen":
+                    self._logger.debug(f"Inferred auth type 'qwen-oauth' from settings_path: {self.settings_path}")
+                    return "qwen-oauth"
+                elif parent_name == ".gemini":
+                    self._logger.debug(f"Inferred auth type 'oauth-personal' from settings_path: {self.settings_path}")
+                    return "oauth-personal"
+
+            # Fallback to ConfigManager if not inferred from settings_path
+            if self._external_config_manager:
+                config_mgr = self._external_config_manager
+                self._logger.debug("Using external ConfigManager for auth type lookup")
+            else:
+                config_mgr = ConfigManager()
+                self._logger.debug("Created new ConfigManager for auth type lookup")
+            
+            cli_type = config_mgr.get_cli_type()
+            self._logger.debug(f"Determined CLI type for auth: {cli_type}")
+
+            if cli_type == "qwen":
+                return "qwen-oauth"
+            return "oauth-personal"  # Default for gemini or any other case
+        except Exception as e:
+            self._logger.warning(f"Could not determine CLI type for auth, falling back to default. Error: {e}")
+            return "oauth-personal"
+
+    def _create_default_settings(self) -> Dict[str, Any]:
+        """
+        Creates the default settings structure.
+        """
+        return {
+            "ide": {"hasSeenNudge": True, "enabled": True},
+            "mcp": {"allowed": []},
+            "mcpServers": {},
+            "model": {"temperature": 0.7},
+            "generationConfig": {"temperature": 0.7},
+            "security": {"auth": {"selectedType": self._get_auth_type()}},
+            "ui": {"theme": "Default"}
+        }
+
     def load_settings(self) -> Dict[str, Any]:
         """
         Load settings from the JSON file.
@@ -149,15 +199,7 @@ class MCPManager:
         try:
             if not self.settings_path.exists():
                 self._logger.info(f"Settings file not found, creating default structure")
-                default_settings = {
-                    "ide": {"hasSeenNudge": True, "enabled": True},
-                    "mcp": {"allowed": []},
-                    "mcpServers": {},
-                    "model": {"temperature": 0.7},
-                    "generationConfig": {"temperature": 0.7},
-                    "security": {"auth": {"selectedType": "oauth-personal"}},
-                    "ui": {"theme": "Default"}
-                }
+                default_settings = self._create_default_settings()
                 self._settings_cache = default_settings
                 return copy.deepcopy(self._settings_cache)
 
@@ -236,15 +278,7 @@ class MCPManager:
                     self._logger.info(f"Creating default settings structure due to corrupt JSON: {e}")
                     
                     # Create default settings structure
-                    default_settings = {
-                        "ide": {"hasSeenNudge": True, "enabled": True},
-                        "mcp": {"allowed": []},
-                        "mcpServers": {},
-                        "model": {"temperature": 0.7},
-                        "generationConfig": {"temperature": 0.7},
-                        "security": {"auth": {"selectedType": "oauth-personal"}},
-                        "ui": {"theme": "Default"}
-                    }
+                    default_settings = self._create_default_settings()
                     
                     self._settings_cache = default_settings
                     return copy.deepcopy(self._settings_cache)
