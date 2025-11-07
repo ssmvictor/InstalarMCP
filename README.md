@@ -13,7 +13,7 @@ do código em módulos e pacotes dedicados.
 ## Conteúdo
 
 1. [Visao Geral](#visao-geral)
-2.
+2. [Instalacao do Github Spec-Kit](#instalacao-do-github-spec-kit)
 3. [Estrutura do Projeto](#estrutura-do-projeto)
 4. [Componentes Principais](#componentes-principais)
 5. [Configurando o Caminho do Usuario](#configurando-o-caminho-do-usuario)
@@ -206,6 +206,115 @@ print(f"Servidores configurados: {list(mcps)}")
 
 - Usa os mesmos módulos `MCPManager` e `ConfigManager` que podem ser usados via código.
 
+
+
+## Instalacao do Github Spec-Kit
+
+### Visao Geral
+
+O Github Spec-Kit é uma ferramenta desenvolvida pelo GitHub para facilitar a especificação e documentação de APIs. Esta funcionalidade está disponível através da aba "Instalar Spec-Kit" na interface gráfica do MCP Manager, que automatiza todo o processo de instalação no Windows.
+
+A ferramenta instala o gerenciador de pacotes UV (se necessário), instala o Spec-Kit a partir do repositório oficial do GitHub, e configura o ambiente Windows para tornar o comando `specify` disponível em qualquer terminal.
+
+Para mais informações sobre o Spec-Kit, consulte a documentação oficial: `https://github.com/github/spec-kit`
+
+### Pre-requisitos
+
+- **Sistema Operacional**: Windows (a funcionalidade é específica para Windows)
+- **Privilégios de Administrador**: Não necessários. A ferramenta adiciona o UV bin ao PATH do usuário (HKCU) e não requer privilégios de administrador.
+- **Conexão com Internet**: Necessária para baixar o UV e o Spec-Kit do GitHub
+- **PowerShell**: Disponível por padrão no Windows, usado para instalação do UV
+
+> Nota: A aba 'Instalar Spec-Kit' só aparece na interface quando executada no Windows
+
+### Funcionalidades da Aba
+
+- **Status de Privilégios**: Exibe se a aplicação está sendo executada como administrador
+- **Botões de Ação Individual**: Permite executar cada etapa separadamente
+- **Botão 'Executar Tudo'**: Automatiza todo o processo de instalação
+- **Área de Logs**: Mostra o progresso em tempo real de cada operação
+
+### Passos Automaticos Realizados
+
+1. **Verificação do UV**: Verifica se o gerenciador de pacotes UV está instalado no sistema
+2. **Instalação do UV** (se necessário): Executa o script PowerShell oficial para instalar o UV: `irm https://astral.sh/uv/install.ps1 | iex`
+3. **Instalação do Spec-Kit**: Executa o comando `uv tool install specify-cli --from git+https://github.com/github/spec-kit.git` para instalar globalmente
+4. **Detecção do Caminho do Bin**: Identifica automaticamente o caminho onde o UV instalou os binários (geralmente `C:\Users\<USUARIO>\.local\bin`)
+5. **Adição ao PATH**: Modifica o registro do Windows (chave `HKEY_CURRENT_USER\Environment`) para adicionar o caminho do bin à variável PATH do usuário
+6. **Notificação do Sistema**: Envia broadcast `WM_SETTINGCHANGE` para notificar o sistema sobre a mudança na variável de ambiente
+
+> Nota: A instalação completa pode levar de 5 a 15 minutos, dependendo da velocidade da conexão com a internet
+
+### Como Usar
+
+1. Abrir a aplicação MCP Manager (`EXECUTAR.bat` ou `python mcp_gui.py`)
+2. Navegar até a aba "Instalar Spec-Kit"
+3. Verificar o status de privilégios de administrador exibido no topo
+4. Escolher entre duas opções:
+   - **Opção A - Instalação Automática**: Clicar no botão "Executar Tudo" para realizar todas as etapas automaticamente
+   - **Opção B - Instalação Manual**: Executar cada etapa individualmente usando os botões específicos (útil para diagnóstico ou se alguma etapa falhar)
+5. Acompanhar o progresso através da área de logs
+6. Aguardar a conclusão de todas as etapas
+
+### Notas Importantes sobre PATH
+
+- **Caminho do UV Bin**: Por padrão, o UV instala ferramentas em `C:\Users\<USUARIO>\.local\bin`. Este caminho é detectado automaticamente pela ferramenta usando o comando `uv tool dir --bin`
+- **Modificação do PATH**: A ferramenta adiciona o caminho ao início da variável PATH do usuário (HKCU - HKEY_CURRENT_USER), não do sistema. Alterações no PATH do sistema não são suportadas pela ferramenta atualmente.
+- **Persistência**: A modificação é permanente e persiste após reinicialização do sistema
+- **Novos Terminais**: É necessário abrir um novo terminal (PowerShell, CMD, ou outro) após a instalação para que as mudanças no PATH tenham efeito. Terminais já abertos não verão a mudança
+- **Verificação**: Para verificar se o Spec-Kit foi instalado corretamente, abrir um novo terminal e executar `specify --version`
+
+### Solucao de Problemas
+
+- **Erro de Permissão ao Modificar PATH**:
+  - Causa: Falta de privilégios para modificar o registro
+  - Solução: Executar a aplicação como administrador (clicar com botão direito em `EXECUTAR.bat` > "Executar como administrador")
+- **UV não encontrado após instalação**:
+  - Causa: Terminal antigo ainda aberto
+  - Solução: Fechar todos os terminais e abrir um novo
+- **Timeout durante instalação**:
+  - Causa: Conexão lenta com a internet
+  - Solução: Verificar conexão e tentar novamente. A ferramenta tem timeout de 5 minutos para UV e 10 minutos para Spec-Kit. Se o timeout for excedido, o processo será automaticamente terminado.
+- **Spec-Kit não funciona após instalação**:
+  - Causa: PATH não foi atualizado corretamente
+  - Solução: Verificar manualmente se o caminho `C:\Users\<USUARIO>\.local\bin` está no PATH usando `echo %PATH%` no CMD
+
+### Integracao com Codigo
+
+```python
+from src.core.speckit_manager import SpecKitManager, SpecKitManagerError
+
+try:
+    manager = SpecKitManager()
+    
+    # Verificar se UV está instalado
+    is_installed, version = manager.check_uv_installed()
+    if not is_installed:
+        print("Instalando UV...")
+        manager.install_uv()
+    
+    # Instalar Spec-Kit
+    print("Instalando Spec-Kit...")
+    manager.install_speckit()
+    
+    # Adicionar ao PATH
+    bin_path = manager.get_uv_bin_path()
+    if bin_path:
+        manager.add_to_windows_path(bin_path)
+        print(f"Spec-Kit instalado com sucesso!")
+        print(f"Abra um novo terminal para usar o comando 'specify'")
+    
+except SpecKitManagerError as err:
+    print(f"Erro durante instalação: {err}")
+```
+
+> Nota: O módulo `SpecKitManager` está disponível em `src/core/speckit_manager.py` e pode ser usado programaticamente em scripts de automação
+
+### Referencias
+
+- Documentação oficial do Spec-Kit: `https://github.com/github/spec-kit`
+- Documentação do UV: `https://github.com/astral-sh/uv`
+- Documentação sobre variáveis de ambiente no Windows: `https://docs.microsoft.com/pt-br/windows/win32/procthread/environment-variables`
 
 
 ## Configurando o Caminho do Usuario

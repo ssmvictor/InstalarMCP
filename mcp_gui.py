@@ -36,6 +36,7 @@ import logging
 import sys
 import os
 from pathlib import Path
+from concurrent.futures import ThreadPoolExecutor
 
 # DependÃªncias de tema opcionais: sv_ttk e darkdetect
 try:
@@ -58,6 +59,15 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 from src.core.config_manager import ConfigManager, ConfigManagerError
 from src.core.mcp_manager import MCPManager, MCPManagerError
 
+# Importação condicional do SpecKitManager (apenas para Windows)
+try:
+    from src.core.speckit_manager import SpecKitManager, SpecKitManagerError
+    HAS_SPECKIT_MANAGER = True
+except ImportError:
+    SpecKitManager = None  # type: ignore
+    SpecKitManagerError = Exception  # Fallback para Exception quando import falha
+    HAS_SPECKIT_MANAGER = False
+
 # ConfiguraÃ§Ã£o de logging
 logging.basicConfig(
     level=logging.INFO,
@@ -79,6 +89,7 @@ class MCPGUI:
         self.style = None
         self.config_manager = None
         self.mcp_manager = None
+        self.speckit_manager = None
         self.mcp_vars = {}
         self.pending_changes = False
         self.temperature_var = None
@@ -155,17 +166,33 @@ class MCPGUI:
     
     def _init_managers(self):
         """
-        Inicializa os gerenciadores de configuraÃ§Ã£o e MCP
+        Inicializa os gerenciadores de configuração e MCP
         """
         try:
             self.config_manager = ConfigManager()
             self.mcp_manager = MCPManager(config_manager=self.config_manager)
+            
+            # Inicializar o SpecKitManager (apenas no Windows)
+            if HAS_SPECKIT_MANAGER and os.name == 'nt':
+                try:
+                    self.speckit_manager = SpecKitManager()
+                    logger.info("SpecKitManager inicializado com sucesso")
+                except Exception as e:
+                    logger.warning(f"Não foi possível inicializar o SpecKitManager: {e}")
+                    self.speckit_manager = None
+            else:
+                self.speckit_manager = None
+                if os.name != 'nt':
+                    logger.debug("SpecKitManager não inicializado: sistema não é Windows")
+                else:
+                    logger.warning("SpecKitManager não disponível: módulo não importado")
+            
             logger.info("Gerenciadores inicializados com sucesso")
         except Exception as e:
             logger.error(f"Erro ao inicializar gerenciadores: {e}")
             messagebox.showerror(
-                "Erro de InicializaÃ§Ã£o",
-                f"NÃ£o foi possÃ­vel inicializar os gerenciadores:\n{e}"
+                "Erro de Inicialização",
+                f"Não foi possível inicializar os gerenciadores:\n{e}"
             )
             sys.exit(1)
     
@@ -196,6 +223,12 @@ class MCPGUI:
         
         # Aba de Templates
         self._setup_templates_tab()
+        
+        # Aba de Instalar Spec-Kit (apenas no Windows)
+        if self.speckit_manager is not None:
+            self._setup_speckit_tab()
+        else:
+            logger.debug("Aba Spec-Kit não adicionada: SpecKitManager não disponível")
         
         # Barra de status
         self._setup_status_bar()
@@ -406,6 +439,447 @@ class MCPGUI:
         # Scrollable frame para a lista de templates
         canvas, scrollbar, inner_frame = self._make_scrollable_list(list_frame)
         self.templates_list_frame = inner_frame
+    
+    def _setup_speckit_tab(self):
+        """
+        Configura a aba de instalação do Spec-Kit
+        """
+        speckit_frame = ttk.Frame(self.notebook)
+        self.notebook.add(speckit_frame, text="Instalar Spec-Kit")
+        
+        # Frame principal com mais espaçamento
+        main_frame = ttk.Frame(speckit_frame, padding="30")
+        main_frame.pack(fill='both', expand=True)
+        
+        # Título
+        title_label = ttk.Label(
+            main_frame,
+            text="Instalação do Github Spec-Kit (Windows)",
+            font=('TkDefaultFont', 16, 'bold')
+        )
+        title_label.pack(pady=(0, 25))
+        
+        # Frame de aviso de privilégios
+        admin_frame = ttk.LabelFrame(main_frame, text="Status de Privilégios", padding="15")
+        admin_frame.pack(fill='x', pady=(0, 20))
+        
+        self.admin_status_label = ttk.Label(admin_frame, text="Verificando...")
+        self.admin_status_label.pack(anchor='w', pady=8)
+        
+        # Verificar status de administrador
+        if self.speckit_manager:
+            try:
+                is_admin = self.speckit_manager.is_admin()
+                if is_admin:
+                    self.admin_status_label.config(
+                        text="✓ Executando como Administrador",
+                        foreground='green'
+                    )
+                else:
+                    self.admin_status_label.config(
+                        text="⚠ Não está executando como Administrador. Algumas operações podem falhar.",
+                        foreground='orange'
+                    )
+            except Exception as e:
+                self.admin_status_label.config(
+                    text=f"✗ Erro ao verificar privilégios: {e}",
+                    foreground='red'
+                )
+        else:
+            self.admin_status_label.config(
+                text="✗ SpecKitManager não disponível",
+                foreground='red'
+            )
+        
+        # Frame de botões de ação
+        buttons_frame = ttk.LabelFrame(main_frame, text="Ações de Instalação", padding="15")
+        buttons_frame.pack(fill='x', pady=(0, 20))
+        
+        # Botões em layout vertical
+        self.check_uv_button = ttk.Button(
+            buttons_frame,
+            text="Verificar UV",
+            command=self._check_uv_status
+        )
+        self.check_uv_button.pack(fill='x', pady=8)
+        
+        self.install_uv_button = ttk.Button(
+            buttons_frame,
+            text="Instalar UV",
+            command=self._install_uv_action
+        )
+        self.install_uv_button.pack(fill='x', pady=8)
+        
+        self.install_speckit_button = ttk.Button(
+            buttons_frame,
+            text="Instalar Spec-Kit",
+            command=self._install_speckit_action
+        )
+        self.install_speckit_button.pack(fill='x', pady=8)
+        
+        self.add_to_path_button = ttk.Button(
+            buttons_frame,
+            text="Adicionar ao PATH",
+            command=self._add_to_path_action
+        )
+        self.add_to_path_button.pack(fill='x', pady=8)
+        
+        self.install_all_button = ttk.Button(
+            buttons_frame,
+            text="Executar Tudo",
+            command=self._install_all_speckit
+        )
+        self.install_all_button.pack(fill='x', pady=8)
+        
+        # Desabilitar botões se o SpecKitManager não estiver disponível
+        if not self.speckit_manager:
+            self._set_speckit_buttons_state('disabled')
+        
+        # Área de logs
+        log_frame = ttk.LabelFrame(main_frame, text="Log de Instalação", padding="15")
+        log_frame.pack(fill='both', expand=True, pady=(0, 15))
+        
+        self.speckit_log_text = scrolledtext.ScrolledText(
+            log_frame,
+            width=70,
+            height=15,
+            wrap=tk.WORD,
+            state='disabled'
+        )
+        self.speckit_log_text.pack(fill='both', expand=True)
+        
+        # Adicionar mensagem inicial se o SpecKitManager não estiver disponível
+        if not self.speckit_manager:
+            self._log_to_speckit("Funcionalidade disponível apenas para Windows", 'warning')
+    
+    def _set_speckit_buttons_state(self, state: str):
+        """
+        Helper para gerenciar o estado dos botões da aba Spec-Kit
+        
+        Args:
+            state: Estado desejado ('normal' ou 'disabled')
+        """
+        if hasattr(self, 'check_uv_button') and self.check_uv_button:
+            self.check_uv_button.config(state=state)
+        if hasattr(self, 'install_uv_button') and self.install_uv_button:
+            self.install_uv_button.config(state=state)
+        if hasattr(self, 'install_speckit_button') and self.install_speckit_button:
+            self.install_speckit_button.config(state=state)
+        if hasattr(self, 'add_to_path_button') and self.add_to_path_button:
+            self.add_to_path_button.config(state=state)
+        if hasattr(self, 'install_all_button') and self.install_all_button:
+            self.install_all_button.config(state=state)
+    
+    def _run_bg(self, task, on_done):
+        """
+        Wrapper para executar tarefas em background usando ThreadPoolExecutor
+        
+        Args:
+            task: Função a ser executada em background
+            on_done: Callback para ser chamado quando a tarefa terminar
+        """
+        def background_task():
+            try:
+                result = task()
+                # Agendar o callback para ser executado na thread principal
+                self.root.after(0, lambda: on_done(result, None))
+            except Exception as e:
+                # Agendar o callback com erro para ser executado na thread principal
+                self.root.after(0, lambda: on_done(None, e))
+        
+        # Criar e executar o ThreadPoolExecutor
+        executor = ThreadPoolExecutor(max_workers=1)
+        executor.submit(background_task)
+        executor.shutdown(wait=False)
+    
+    def _log_to_speckit(self, message: str, level: str = 'info'):
+        """
+        Método auxiliar para adicionar mensagens ao log da aba Spec-Kit
+        
+        Args:
+            message: Mensagem a ser adicionada
+            level: Nível do log ('info', 'warning', 'error')
+        """
+        from datetime import datetime
+        
+        # Habilitar temporariamente o widget de texto
+        self.speckit_log_text.config(state='normal')
+        
+        # Adicionar timestamp e mensagem
+        timestamp = datetime.now().strftime('%H:%M:%S')
+        self.speckit_log_text.insert(tk.END, f"[{timestamp}] {message}\n")
+        
+        # Fazer scroll para o final
+        self.speckit_log_text.see(tk.END)
+        
+        # Desabilitar novamente o widget
+        self.speckit_log_text.config(state='disabled')
+        
+        # Atualizar a interface
+        self.root.update_idletasks()
+        
+        # Também fazer log usando o logger
+        if level == 'warning':
+            logger.warning(message)
+        elif level == 'error':
+            logger.error(message)
+        else:
+            logger.info(message)
+    
+    def _check_uv_status(self):
+        """
+        Verifica o status de instalação do UV
+        """
+        if not self.speckit_manager:
+            self._log_to_speckit("SpecKitManager não disponível", 'error')
+            return
+        
+        try:
+            self._log_to_speckit("Verificando instalação do UV...")
+            installed, version = self.speckit_manager.check_uv_installed()
+            
+            if installed:
+                self._log_to_speckit(f"✓ UV está instalado: {version}")
+                self.status_label.config(text="UV está instalado")
+            else:
+                self._log_to_speckit("✗ UV não está instalado")
+                self.status_label.config(text="UV não está instalado")
+                
+        except Exception as e:
+            self._log_to_speckit(f"✗ Erro ao verificar UV: {e}", 'error')
+            messagebox.showerror("Erro", f"Erro ao verificar UV:\n{e}")
+    
+    def _install_uv_action(self):
+        """
+        Instala o UV
+        """
+        if not self.speckit_manager:
+            self._log_to_speckit("SpecKitManager não disponível", 'error')
+            return
+        
+        # Desabilitar botões durante a instalação
+        self._set_speckit_buttons_state('disabled')
+        
+        # Agendar logs iniciais
+        self._log_to_speckit("Iniciando instalação do UV...")
+        self._log_to_speckit("Isso pode levar alguns minutos. Aguarde...")
+        
+        # Definir a tarefa de background
+        def install_task():
+            return self.speckit_manager.install_uv(log_callback=self._log_to_speckit)
+        
+        # Definir o callback para quando a tarefa terminar
+        def on_done(result, error):
+            if error:
+                if HAS_SPECKIT_MANAGER and isinstance(error, SpecKitManagerError):
+                    self._log_to_speckit(f"✗ Erro ao instalar UV: {error}", 'error')
+                    messagebox.showerror("Erro de Instalação", f"Erro ao instalar UV:\n{error}")
+                else:
+                    self._log_to_speckit(f"✗ Erro inesperado ao instalar UV: {error}", 'error')
+                    messagebox.showerror("Erro", f"Erro inesperado ao instalar UV:\n{error}")
+                self.status_label.config(text="Falha na instalação do UV")
+            else:
+                if result:
+                    self._log_to_speckit("✓ UV instalado com sucesso!")
+                    self.status_label.config(text="UV instalado com sucesso")
+                    # Verificar status após a instalação
+                    self._check_uv_status()
+                else:
+                    self._log_to_speckit("✗ Falha na instalação do UV", 'error')
+                    self.status_label.config(text="Falha na instalação do UV")
+            
+            # Reabilitar botões
+            self._set_speckit_buttons_state('normal')
+        
+        # Executar a tarefa em background
+        self._run_bg(install_task, on_done)
+    
+    def _install_speckit_action(self):
+        """
+        Instala o Spec-Kit
+        """
+        if not self.speckit_manager:
+            self._log_to_speckit("SpecKitManager não disponível", 'error')
+            return
+        
+        # Verificar pré-requisitos
+        self._log_to_speckit("Verificando pré-requisitos...")
+        uv_installed, _ = self.speckit_manager.check_uv_installed()
+        
+        if not uv_installed:
+            if not messagebox.askyesno(
+                "Pré-requisito Ausente",
+                "UV não está instalado. Deseja instalar o UV primeiro?"
+            ):
+                self._log_to_speckit("Instalação cancelada pelo usuário", 'warning')
+                return
+            
+            # Instalar UV primeiro
+            self._install_uv_action()
+            
+            # Verificar novamente
+            uv_installed, _ = self.speckit_manager.check_uv_installed()
+            if not uv_installed:
+                self._log_to_speckit("✗ Falha na instalação do UV, não é possível continuar", 'error')
+                return
+        
+        # Desabilitar botões durante a instalação
+        self._set_speckit_buttons_state('disabled')
+        
+        # Agendar logs iniciais
+        self._log_to_speckit("Iniciando instalação do Spec-Kit...")
+        self._log_to_speckit("Isso pode levar até 10 minutos. Aguarde...")
+        
+        # Definir a tarefa de background
+        def install_task():
+            return self.speckit_manager.install_speckit(log_callback=self._log_to_speckit)
+        
+        # Definir o callback para quando a tarefa terminar
+        def on_done(result, error):
+            if error:
+                if HAS_SPECKIT_MANAGER and isinstance(error, SpecKitManagerError):
+                    self._log_to_speckit(f"✗ Erro ao instalar Spec-Kit: {error}", 'error')
+                    messagebox.showerror("Erro de Instalação", f"Erro ao instalar Spec-Kit:\n{error}")
+                else:
+                    self._log_to_speckit(f"✗ Erro inesperado ao instalar Spec-Kit: {error}", 'error')
+                    messagebox.showerror("Erro", f"Erro inesperado ao instalar Spec-Kit:\n{error}")
+                self.status_label.config(text="Falha na instalação do Spec-Kit")
+            else:
+                if result:
+                    self._log_to_speckit("✓ Spec-Kit instalado com sucesso!")
+                    self.status_label.config(text="Spec-Kit instalado com sucesso")
+                else:
+                    self._log_to_speckit("✗ Falha na instalação do Spec-Kit", 'error')
+                    self.status_label.config(text="Falha na instalação do Spec-Kit")
+            
+            # Reabilitar botões
+            self._set_speckit_buttons_state('normal')
+        
+        # Executar a tarefa em background
+        self._run_bg(install_task, on_done)
+    
+    def _add_to_path_action(self):
+        """
+        Adiciona o caminho do UV ao PATH do Windows
+        """
+        if not self.speckit_manager:
+            self._log_to_speckit("SpecKitManager não disponível", 'error')
+            return
+        
+        # Desabilitar botões durante a operação
+        self._set_speckit_buttons_state('disabled')
+        
+        # Agendar logs iniciais
+        self._log_to_speckit("Obtendo caminho do binário do UV...")
+        
+        # Definir a tarefa de background
+        def add_path_task():
+            bin_path = self.speckit_manager.get_uv_bin_path()
+            
+            if not bin_path:
+                raise Exception("Não foi possível determinar o caminho do UV. Certifique-se de que o UV está instalado.")
+            
+            self._log_to_speckit(f"Caminho encontrado: {bin_path}")
+            
+            return self.speckit_manager.add_to_windows_path(bin_path, log_callback=self._log_to_speckit)
+        
+        # Definir o callback para quando a tarefa terminar
+        def on_done(result, error):
+            if error:
+                if HAS_SPECKIT_MANAGER and isinstance(error, SpecKitManagerError):
+                    if "permissão" in str(error).lower():
+                        self._log_to_speckit("✗ Erro de permissão. Tente executar como administrador.", 'error')
+                        messagebox.showerror(
+                            "Erro de Permissão",
+                            f"Erro de permissão ao modificar o PATH:\n{error}\n\n"
+                            "Tente executar o aplicativo como administrador."
+                        )
+                    else:
+                        self._log_to_speckit(f"✗ Erro ao adicionar ao PATH: {error}", 'error')
+                        messagebox.showerror("Erro", f"Erro ao adicionar ao PATH:\n{error}")
+                else:
+                    self._log_to_speckit(f"✗ Erro inesperado ao adicionar ao PATH: {error}", 'error')
+                    messagebox.showerror("Erro", f"Erro inesperado ao adicionar ao PATH:\n{error}")
+                self.status_label.config(text="Falha ao adicionar ao PATH")
+            else:
+                if result:
+                    self._log_to_speckit("✓ Caminho adicionado ao PATH com sucesso!")
+                    self._log_to_speckit("⚠ Abra um novo terminal para que as mudanças tenham efeito", 'warning')
+                    messagebox.showinfo(
+                        "PATH Atualizado",
+                        "Caminho adicionado ao PATH com sucesso!\n\n"
+                        "Abra um novo terminal para que as mudanças tenham efeito."
+                    )
+                    self.status_label.config(text="PATH atualizado com sucesso")
+                else:
+                    self._log_to_speckit("✗ Falha ao adicionar ao PATH", 'error')
+                    self.status_label.config(text="Falha ao adicionar ao PATH")
+            
+            # Reabilitar botões
+            self._set_speckit_buttons_state('normal')
+        
+        # Executar a tarefa em background
+        self._run_bg(add_path_task, on_done)
+    
+    def _install_all_speckit(self):
+        """
+        Executa todos os passos de instalação automaticamente
+        """
+        if not self.speckit_manager:
+            self._log_to_speckit("SpecKitManager não disponível", 'error')
+            return
+        
+        # Confirmar instalação automática
+        if not messagebox.askokcancel(
+            "Instalação Automática",
+            "Isso executará todos os passos de instalação do Spec-Kit automaticamente:\n\n"
+            "1. Verificar instalação do UV\n"
+            "2. Instalar UV (se necessário)\n"
+            "3. Instalar Spec-Kit\n"
+            "4. Adicionar ao PATH\n\n"
+            "Deseja continuar?"
+        ):
+            self._log_to_speckit("Instalação automática cancelada pelo usuário", 'warning')
+            return
+        
+        self._log_to_speckit("=== Iniciando instalação completa do Spec-Kit ===")
+        
+        try:
+            # Passo 1: Verificar UV
+            self._log_to_speckit("Passo 1/4: Verificando instalação do UV...")
+            self._check_uv_status()
+            
+            uv_installed, _ = self.speckit_manager.check_uv_installed()
+            
+            # Passo 2: Instalar UV (se necessário)
+            if not uv_installed:
+                self._log_to_speckit("Passo 2/4: Instalando UV...")
+                self._install_uv_action()
+                
+                # Verificar novamente
+                uv_installed, _ = self.speckit_manager.check_uv_installed()
+                if not uv_installed:
+                    self._log_to_speckit("✗ Falha na instalação do UV, interrompendo instalação", 'error')
+                    self.status_label.config(text="Instalação interrompida")
+                    return
+            else:
+                self._log_to_speckit("Passo 2/4: UV já está instalado, pulando...")
+            
+            # Passo 3: Instalar Spec-Kit
+            self._log_to_speckit("Passo 3/4: Instalando Spec-Kit...")
+            self._install_speckit_action()
+            
+            # Passo 4: Adicionar ao PATH
+            self._log_to_speckit("Passo 4/4: Adicionando ao PATH...")
+            self._add_to_path_action()
+            
+            self._log_to_speckit("=== Instalação completa finalizada ===")
+            self.status_label.config(text="Instalação completa concluída")
+            
+        except Exception as e:
+            self._log_to_speckit(f"✗ Erro durante a instalação automática: {e}", 'error')
+            self.status_label.config(text="Instalação interrompida")
+            messagebox.showerror("Erro", f"Erro durante a instalação automática:\n{e}")
     
     def _setup_status_bar(self):
         """
