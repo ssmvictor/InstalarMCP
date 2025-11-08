@@ -427,7 +427,7 @@ class MCPGUI:
         # TÃ­tulo
         title_label = ttk.Label(
             main_frame,
-            text="Templates DisponÃ­veis",
+            text="templates disponíveis",
             font=('TkDefaultFont', 16, 'bold')
         )
         title_label.pack(pady=(0, 25))
