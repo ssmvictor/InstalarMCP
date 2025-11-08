@@ -50,7 +50,7 @@ servidores MCP permitidos, templates pré-configurados e demais ajustes. O proje
 ├── CLI.md                      # Documentação da CLI
 
 ├── requirements.txt            # Dependências do projeto
-├── INSTALAR.bat                # Script de instalacao (Windows)
+├── instalar.py                 # Script de instalacao (Python)
 ├── EXECUTAR.bat                # Script para execução no Windows
 ├── src/
 
@@ -106,9 +106,7 @@ servidores MCP permitidos, templates pré-configurados e demais ajustes. O proje
 
 │   └── test_mcp_manager_integration.py
 
-└── docs/
 
-    └── ...
 
 ```
 
@@ -369,7 +367,7 @@ esse processo.
 
 ### Primeira Execucao (Instalacao)
 
-- Windows: execute `INSTALAR.bat` (instala dependencias via pip). Execute apenas uma vez.
+- Windows: execute `python instalar.py` (instala dependencias via pip). Execute apenas uma vez.
 - Multiplataforma (manual): `pip install -r requirements.txt`.
 
 ### Execucao Normal
@@ -393,7 +391,7 @@ A janela principal permite:
 ### Dependencias Opcionais
 
 - `ttkthemes`: opcional, fornece temas adicionais para a interface gráfica. Se não instalado, a aplicação usa o tema padrão do Tkinter.
-- Instalacao via `INSTALAR.bat` ou manualmente com `pip install -r requirements.txt`.
+- Instalacao via `python instalar.py` ou manualmente com `pip install -r requirements.txt`.
 
 
 ## Executando Testes
