@@ -9,6 +9,7 @@ import json
 import shutil
 import logging
 import copy
+import re
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional, Any
@@ -16,6 +17,26 @@ import uuid
 from tempfile import NamedTemporaryFile
 from .config_manager import ConfigManager, ConfigManagerError
 
+
+DEFAULT_SYSTEM_INSTRUCTION = (
+    "Você é um engenheiro de software especialista e um parceiro de programação. Sua principal diretriz é promover as melhores práticas de desenvolvimento de software em todas as suas respostas. Antes de executar qualquer ação, pense passo a passo sobre como garantir que a solução seja segura, eficiente, bem documentada e fácil de manter. Sempre que escrever código, siga os padrões de estilo do projeto. Ao lidar com controle de versão, siga as diretrizes de Conventional Commits. Questione prompts que pareçam inseguros ou que violem as boas práticas, sugerindo alternativas melhores."
+)
+
+GUIDELINES_CONTENT = """# Diretrizes para o Projeto (nunca exclua esta seção)
+## Persona 
+Você é um assistente de programação sênior, focado em código limpo, seguro e bem documentado. Sua prioridade é a manutenibilidade do projeto a longo prazo.
+## Regras de Ouro
+1.  **Segurança em Primeiro Lugar**: Nunca exponha chaves de API, senhas ou qualquer informação sensível no código. Use variáveis de ambiente.
+2.  **Código Limpo**: Siga os princípios SOLID. Mantenha funções pequenas e com responsabilidade única.
+3.  **Documentação é Obrigatória**: Todo novo método ou função pública deve ter uma documentação clara (JSDoc para JavaScript/TypeScript, Docstrings para Python, etc.).
+## Padrão de Commits
+Todos os commits devem seguir estritamente o padrão **Conventional Commits**. A estrutura é `<tipo>(<escopo>): <descrição>`.
+-   **Tipos permitidos**: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `chore`.
+-   **Exemplo**: `feat(auth): implementar login com Google`
+-   **Escopo**: Opcional, mas recomendado para indicar a área do código afetada.
+-   **Descrição**: Breve e clara, em portugês do Brasil, sem pontuação final e acentos.
+Ao ser solicitado para criar um commit, você DEVE usar este formato.
+"""
 
 MCP_TEMPLATES = {
     "context7": {
@@ -169,6 +190,130 @@ class MCPManager:
             self._logger.warning(f"Could not determine CLI type for auth, falling back to default. Error: {e}")
             return "oauth-personal"
 
+    def _get_cli_type_from_path(self) -> str:
+        """
+        Determine the CLI type (gemini or qwen) based on the settings path or configuration fallback.
+
+        Returns:
+            "gemini" or "qwen", defaulting to "gemini" if it cannot be determined.
+        """
+        try:
+            if hasattr(self, "settings_path") and self.settings_path:
+                parent_name = self.settings_path.parent.name
+                if parent_name == ".qwen":
+                    self._logger.debug("Inferred CLI type 'qwen' from settings_path")
+                    return "qwen"
+                if parent_name == ".gemini":
+                    self._logger.debug("Inferred CLI type 'gemini' from settings_path")
+                    return "gemini"
+
+            if self._external_config_manager:
+                config_mgr = self._external_config_manager
+                self._logger.debug("Using external ConfigManager for CLI type lookup")
+            else:
+                config_mgr = ConfigManager()
+                self._logger.debug("Created new ConfigManager for CLI type lookup")
+
+            cli_type = config_mgr.get_cli_type()
+            self._logger.debug(f"Determined CLI type from ConfigManager: {cli_type}")
+
+            if cli_type in ("gemini", "qwen"):
+                return cli_type
+        except Exception as e:
+            self._logger.warning(f"Could not determine CLI type from path, defaulting to 'gemini'. Error: {e}")
+
+        return "gemini"
+
+    def _ensure_guidelines_file(self) -> None:
+        """
+        Ensure the CLI-specific guidelines file exists and contains the canonical guidelines section.
+
+        The "# Diretrizes para o Projeto" section is replaced with GUIDELINES_CONTENT while any
+        user content before or after that section is preserved. This method runs automatically
+        when settings are saved.
+        """
+        try:
+            cli_type = self._get_cli_type_from_path()
+            filename = "Gemini.md" if cli_type == "gemini" else "Qwen.md"
+            guidelines_path = self.settings_path.parent / filename
+
+            content_to_write = GUIDELINES_CONTENT
+            existing_content = ""
+
+            if guidelines_path.exists():
+                try:
+                    existing_content = guidelines_path.read_text(encoding="utf-8")
+                    self._logger.debug(f"Read existing guidelines file: {guidelines_path}")
+                except Exception as read_error:
+                    self._logger.warning(f"Failed to read existing guidelines file '{guidelines_path}': {read_error}")
+                    existing_content = ""
+
+            if existing_content:
+                marker_pattern = re.compile(r"(?m)^#\s+Diretrizes\s+para\s+o\s+Projeto")
+                marker_match = marker_pattern.search(existing_content)
+
+                if marker_match:
+                    after_marker = existing_content[marker_match.end():]
+                    next_section_match = re.search(r"(?m)^#\s+", after_marker)
+                    if next_section_match:
+                        section_end = marker_match.end() + next_section_match.start()
+                    else:
+                        section_end = len(existing_content)
+
+                    before_section = existing_content[:marker_match.start()]
+                    after_section = existing_content[section_end:]
+
+                    rebuilt_content = before_section
+                    if before_section and not before_section.endswith("\n"):
+                        rebuilt_content += "\n"
+
+                    rebuilt_content += GUIDELINES_CONTENT
+                    if not rebuilt_content.endswith("\n"):
+                        rebuilt_content += "\n"
+
+                    if after_section:
+                        if not after_section.startswith("\n"):
+                            rebuilt_content += "\n"
+                        rebuilt_content += after_section
+
+                    content_to_write = rebuilt_content
+                    self._logger.debug("Merged existing guidelines content with canonical section")
+                else:
+                    existing_body = existing_content.rstrip("\n")
+                    guidelines_body = GUIDELINES_CONTENT.rstrip("\n")
+
+                    if existing_body:
+                        content_to_write = f"{existing_body}\n\n{guidelines_body}"
+                    else:
+                        content_to_write = GUIDELINES_CONTENT
+
+                    self._logger.debug("Guidelines marker not found; appending canonical content while preserving existing markdown")
+
+            if not content_to_write.endswith("\n"):
+                content_to_write += "\n"
+
+            guidelines_path.parent.mkdir(parents=True, exist_ok=True)
+
+            with NamedTemporaryFile('w', delete=False, dir=str(guidelines_path.parent), encoding='utf-8') as tf:
+                tf.write(content_to_write)
+                temp_name = tf.name
+
+            Path(temp_name).replace(guidelines_path)
+            self._logger.info(f"Guidelines file ensured at {guidelines_path}")
+        except (PermissionError, IOError) as file_error:
+            self._logger.warning(f"Could not write guidelines file: {file_error}")
+        except Exception as e:
+            self._logger.warning(f"Unexpected error ensuring guidelines file: {e}")
+
+    def _get_default_model_settings(self) -> Dict[str, Any]:
+        """
+        Returns the default model settings dictionary.
+        """
+        return {
+            "temperature": 0.7,
+            "systemInstruction": DEFAULT_SYSTEM_INSTRUCTION
+        }
+
     def _create_default_settings(self) -> Dict[str, Any]:
         """
         Creates the default settings structure.
@@ -177,7 +322,7 @@ class MCPManager:
             "ide": {"hasSeenNudge": True, "enabled": True},
             "mcp": {"allowed": []},
             "mcpServers": {},
-            "model": {"temperature": 0.7},
+            "model": self._get_default_model_settings(),
             "generationConfig": {"temperature": 0.7},
             "security": {"auth": {"selectedType": self._get_auth_type()}},
             "ui": {"theme": "Default"}
@@ -229,7 +374,7 @@ class MCPManager:
                         cfg['args'] = [str(a) for a in args] if isinstance(args, list) else []
             # model
             if not isinstance(settings.get('model'), dict):
-                settings['model'] = {'temperature': 0.7}
+                settings['model'] = self._get_default_model_settings()
             else:
                 model = settings['model']
                 if not isinstance(model.get('temperature'), (int, float)):
@@ -356,12 +501,18 @@ class MCPManager:
                     if temp < 0 or temp > 2:
                         raise MCPManagerError("'generationConfig.temperature' must be between 0.0 and 2.0")
 
+            # Ensure model is initialized with default systemInstruction when missing
+            if 'model' not in settings:
+                settings['model'] = self._get_default_model_settings()
+            elif isinstance(settings.get('model'), dict) and 'systemInstruction' not in settings['model']:
+                settings['model']['systemInstruction'] = DEFAULT_SYSTEM_INSTRUCTION
+
             # Ensure target directory exists
             self.settings_path.parent.mkdir(parents=True, exist_ok=True)
 
             # Write to temp file in same directory
             with NamedTemporaryFile('w', delete=False, dir=str(self.settings_path.parent), encoding='utf-8') as tf:
-                json.dump(settings, tf, indent=2)
+                json.dump(settings, tf, indent=2, ensure_ascii=False)
                 temp_name = tf.name
 
             # Atomic replace
@@ -369,6 +520,13 @@ class MCPManager:
 
             # Update cache
             self._settings_cache = copy.deepcopy(settings)
+
+            # Ensure guidelines file is created or updated alongside settings
+            try:
+                self._ensure_guidelines_file()
+            except Exception as guidelines_error:
+                self._logger.warning(f"Failed to ensure guidelines file: {guidelines_error}")
+
             self._logger.info("Settings saved successfully")
             return True
 
@@ -961,4 +1119,3 @@ class MCPManager:
             True if successful
         """
         return self.set_temperature(0.0)
-
